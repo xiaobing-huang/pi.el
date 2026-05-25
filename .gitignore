@@ -1,0 +1,5 @@
+.cask
+*.elc
+.dir-locals.el
+*~
+sandbox
