@@ -562,7 +562,14 @@ For read/write/edit, the path is rendered as a file-link widget."
              'face 'pi-widget-error-face)))
          (widget-value-set pi-prompt-widget ""))))))
 
-(defun pi-get-session-stats ()
+(defun pi-insert-stats-section (header plist fields)
+  "Insert a stats section with HEADER (bold), extracting integers from PLIST.
+FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
+  (widget-insert (propertize (concat header "\n") 'face 'bold))
+  (pcase-dolist (`(,label . ,key) fields)
+    (widget-insert (format " %s: %d\n" label (plist-get plist key)))))
+
+(defun pi-session-stats ()
   (interactive)
   (pi-with-chat-buffer
     (pi-send-command
@@ -571,7 +578,7 @@ For read/write/edit, the path is rendered as a file-link widget."
      (lambda (resp)
        (let* ((data (plist-get resp :data))
               (tokens (plist-get data :tokens))
-              (_context (plist-get data :contextUsage)))
+              (cost (plist-get data :cost)))
          (pi-widget-save-excursion
            (widget-insert
             (propertize "Session Info\n" 'face 'bold))
@@ -587,43 +594,32 @@ For read/write/edit, the path is rendered as a file-link widget."
             (format " ID: %s\n\n"
                     (plist-get data :sessionId)))
 
-           (widget-insert
-            (propertize "Messages\n" 'face 'bold))
+           (pi-insert-stats-section
+            "Messages"
+            data
+            '(("User" . :userMessages)
+              ("Assistant" . :assistantMessages)
+              ("Tool Calls" . :toolCalls)
+              ("Tool Results" . :toolResults)
+              ("Total" . :totalMessages)))
+
+           (widget-insert "\n")
+
+           (pi-insert-stats-section
+            "Tokens"
+            tokens
+            '(("Input" . :input)
+              ("Output" . :output)
+              ("Cache Read" . :cacheRead)
+              ("Total" . :total)))
+
+           (widget-insert "\n")
 
            (widget-insert
-            (format " User: %d\n"
-                    (plist-get data :userMessages)))
+            (propertize "Cost\n" 'face 'bold))
 
            (widget-insert
-            (format " Assistant: %d\n"
-                    (plist-get data :assistantMessages)))
-
-           (widget-insert
-            (format " Tool Calls: %d\n"
-                    (plist-get data :toolCalls)))
-
-           (widget-insert
-            (format " Tool Results: %d\n"
-                    (plist-get data :toolResults)))
-
-           (widget-insert
-            (format " Total: %d\n\n"
-                    (plist-get data :totalMessages)))
-
-           (widget-insert
-            (propertize "Tokens\n" 'face 'bold))
-
-           (widget-insert
-            (format " Input: %d\n"
-                    (plist-get tokens :input)))
-
-           (widget-insert
-            (format " Output: %d\n"
-                    (plist-get tokens :output)))
-
-           (widget-insert
-            (format " Total: %d\n"
-                    (plist-get tokens :total)))
+            (format " Total: %.4f\n" cost))
 
            (widget-insert "\n\n")))))))
 
