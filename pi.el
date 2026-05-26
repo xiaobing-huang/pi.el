@@ -52,6 +52,11 @@
   "Face used for assistant thinking content."
   :group 'pi)
 
+(defface pi-tool-name-face
+  '((t :inherit font-lock-function-name-face :weight bold))
+  "Face used for tool names in tool execution events."
+  :group 'pi)
+
 (defcustom pi-sync-request-timeout 2
   "The number of seconds to wait for a sync response."
   :type 'integer
@@ -347,46 +352,37 @@ Example:
 (defun pi-message-role (message)
   (or (plist-get message :role) "unknown"))
 
-(defun pi-message-text (message)
+(defun pi-content-join (message type)
   (mapconcat
    (lambda (item)
-     (when (equal (plist-get item :type) "text")
-       (plist-get item :text)))
+     (when (equal (plist-get item :type) type)
+       (plist-get item (intern (concat ":" type)))))
    (plist-get message :content)
    ""))
 
-(defun pi-message-thinking-text (message)
-  (mapconcat
-   (lambda (item)
-     (when (equal (plist-get item :type) "thinking")
-       (plist-get item :thinking)))
-   (plist-get message :content)
-   ""))
+(defun pi-content-text (message)
+  (pi-content-join message "text"))
 
+(defun pi-content-thinking (message)
+  (pi-content-join message "thinking"))
 
 (defun pi-handle-noop (_event)
   nil)
-
-(defun pi-handle-message-start (event)
-  (let* ((message (plist-get event :message))
-         (role (pi-message-role message)))
-    (when (member role '("assistant" "user"))
-      (pi-widget-save-excursion
-        (widget-insert
-         (propertize
-          (format "%s> " role)
-          'face 'pi-chat-role-face))))))
 
 (defun pi-handle-message-update (event)
   (let* ((message (plist-get event :message))
          (role (pi-message-role message))
          (type (plist-get event :type))
-         (thinking-text (pi-message-thinking-text message))
-         (text (pi-message-text message)))
+         (thinking-text (pi-content-thinking message))
+         (text (pi-content-text message)))
     (when (member role '("assistant" "user"))
      (unless (string-empty-p thinking-text)
        (pi-widget-save-excursion
          (unless pi-thinking-widget
+           (widget-insert
+            (propertize
+             (format "%s> " role)
+             'face 'pi-chat-role-face))
            (setq pi-thinking-widget (widget-create 'item
                                                    :format "%[%v%]\n\n"
                                                    :button-face 'pi-thinking-face
@@ -396,19 +392,63 @@ Example:
      (unless (string-empty-p text)
        (pi-widget-save-excursion
          (unless pi-message-widget
+           (widget-insert
+            (propertize
+             (format "%s> " role)
+             'face 'pi-chat-role-face))
            (setq pi-message-widget (widget-create 'item
                                                   :format "%v\n\n"
                                                   "")))
-         (widget-value-set pi-message-widget text)))
+         (widget-value-set pi-message-widget text))))
+    (when (equal type "message_end")
+      ;; Cleanup tracking state
+      (setq pi-thinking-widget nil
+            pi-message-widget nil))))
 
-     (when (equal type "message_end")
-       ;; Cleanup tracking state
-       (setq pi-thinking-widget nil
-             pi-message-widget nil)))))
+
+(defun pi-format-tool-args (tool-name args)
+  "Format ARGS for display based on TOOL-NAME.
+For read/write/edit, the path is rendered as a file-link widget."
+  (pcase tool-name
+    ((or "read" "write")
+     (when-let ((path (plist-get args :path)))
+       (widget-create 'file-link
+                      :button-prefix ""
+                      :button-suffix ""
+                      (expand-file-name path (pi-project-root)))
+       (widget-insert "\n")))
+    ("edit"
+     (when-let ((path (plist-get args :path)))
+       (widget-create 'file-link
+                      :button-prefix ""
+                      :button-suffix ""
+                      (expand-file-name path (pi-project-root)))
+       (widget-insert "\n")))
+    ("bash"
+     (when-let ((command (plist-get args :command)))
+       (widget-insert (format "%s \n" command))))
+    (_
+     (widget-insert (format "%S\n" args)))))
+
+
+(defun pi-handle-tool-execution-start (event)
+  (let* ((tool-name (plist-get event :toolName))
+         (args (plist-get event :args)))
+    (pi-widget-save-excursion
+      (widget-insert
+       (propertize (format "%s " tool-name) 'face 'pi-tool-name-face))
+      (pi-format-tool-args tool-name args))))
+
+(defun pi-handle-tool-execution-end (event)
+  (let* ((result (plist-get event :result))
+         (result-text (pi-content-text result)))
+    (pi-widget-save-excursion
+      (when (not (string-empty-p result-text))
+        (widget-insert (format "%s\n" result-text))))))
 
 
 (defun pi-register-event-listeners ()
-  (pi-set-event-listener "message_start" #'pi-handle-message-start)
+  (pi-set-event-listener "message_start" #'pi-handle-noop)
   (pi-set-event-listener "message_update" #'pi-handle-message-update)
   (pi-set-event-listener "message_end" #'pi-handle-message-update)
 
@@ -416,7 +456,11 @@ Example:
   (pi-set-event-listener "agent_end" #'pi-handle-noop)
 
   (pi-set-event-listener "turn_start" #'pi-handle-noop)
-  (pi-set-event-listener "turn_end" #'pi-handle-noop))
+  (pi-set-event-listener "turn_end" #'pi-handle-noop)
+
+  (pi-set-event-listener "tool_execution_start" #'pi-handle-tool-execution-start)
+  (pi-set-event-listener "tool_execution_update" #'pi-handle-noop)
+  (pi-set-event-listener "tool_execution_end" #'pi-handle-tool-execution-end))
 
 (defun pi-current-chat ()
   (gethash (pi-project-name) pi-chats))
@@ -424,7 +468,7 @@ Example:
 
 (defun pi-focus-prompt ()
   (goto-char (widget-get pi-prompt-widget :from))
-  (widget-forward 1)
+  (forward-char 6)
   (widget-end-of-line))
 
 (define-derived-mode pi-chat-mode nil "pi-chat"
@@ -439,7 +483,8 @@ Example:
   (setq pi-prompt-widget
         (widget-create 'editable-field
                        :help-echo ""
-                       :format "user> %v"
+                       :format "%[user>%] %v"
+                       :button-face 'pi-chat-role-face
                        :action (lambda (widget &optional _event)
                                  (pi-send-prompt (widget-value widget)))))
   (use-local-map widget-keymap)
@@ -503,7 +548,7 @@ Example:
      (lambda (resp)
        (let* ((data (plist-get resp :data))
               (tokens (plist-get data :tokens))
-              (context (plist-get data :contextUsage)))
+              (_context (plist-get data :contextUsage)))
          (pi-widget-save-excursion
            (widget-insert
             (propertize "Session Info\n" 'face 'bold))
