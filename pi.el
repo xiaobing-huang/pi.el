@@ -546,7 +546,6 @@ For read/write/edit, the path is rendered as a file-link widget."
 
 ;;; Commands
 
-
 (defun pi-send-prompt (&optional prompt)
   (interactive "sPrompt: ")
   (pi-with-chat-buffer
@@ -622,18 +621,6 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
             (format " Total: %.4f\n" cost))
 
            (widget-insert "\n\n")))))))
-
-(defun pi-get-state ()
-  (interactive)
-  (pi-with-chat-buffer
-      (pi-send-command
-       "get_state"
-       '()
-       (lambda (resp)
-         (pi-widget-save-excursion
-           (widget-insert
-            (format "%S\n\n" resp)))))))
-
 
 (provide 'pi)
 
