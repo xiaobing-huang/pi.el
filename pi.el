@@ -156,6 +156,31 @@ PRED is called with KEY VALUE."
     (font-lock-ensure)
     (buffer-string)))
 
+(defun pi-render-content (filename content)
+  (with-temp-buffer
+    ;; Use a fake temp filename preserving extension only.
+    (setq-local
+     buffer-file-name
+     (expand-file-name
+      (concat "pi-fontify"
+              (when-let ((ext (file-name-extension filename t)))
+                ext))
+      temporary-file-directory))
+
+    (insert content)
+
+    (let ((delay-mode-hooks t)
+          (enable-local-variables nil)
+          (enable-local-eval nil))
+      (set-auto-mode)
+      (font-lock-ensure))
+
+    ;; Prevent save prompts
+    (set-buffer-modified-p nil)
+
+    ;; Preserve text properties
+    (buffer-string)))
+
 (defun pi-widget-replace-with-markdown (widget text)
   (let ((inhibit-read-only t))
     (save-excursion
@@ -433,11 +458,15 @@ PRED is called with KEY VALUE."
                         (expand-file-name path (pi-project-root)))
          (widget-insert "\n"))))
     ("write"
-     (when-let ((path (plist-get args :path)))
+     (when-let ((path (plist-get args :path))
+                (content (plist-get args :content)))
        (widget-create 'file-link
                       :button-prefix ""
                       :button-suffix ""
                       (expand-file-name path (pi-project-root)))
+       (when (not (string-empty-p content))
+         (widget-insert "\n")
+         (widget-insert (pi-render-content path content)))
        (widget-insert "\n")))
     ("edit"
      (when-let ((path (plist-get args :path)))
