@@ -108,6 +108,10 @@
 (defun pi-join (list)
   (mapconcat 'identity list ""))
 
+(defun pi-insert-error (text)
+  "Insert TEXT with `pi-widget-error-face'."
+  (widget-insert (propertize text 'face 'pi-widget-error-face)))
+
 (defun pi-seconds-elapsed-since (time)
   (time-to-seconds (time-subtract (current-time) time)))
 
@@ -132,13 +136,9 @@ PRED is called with KEY VALUE."
     `(let ((,resp-sym ,response))
        (if (pi-response-success-p ,resp-sym)
            (progn ,@body)
-         (let ((err (plist-get ,resp-sym :error)))
-           (when err
-             (pi-widget-save-excursion
-               (widget-insert
-                (propertize
-                 (format "%s\n\n" err)
-                 'face 'pi-widget-error-face))))
+         (when-let (err (plist-get ,resp-sym :error))
+           (pi-widget-save-excursion
+             (pi-insert-error (format "%s\n\n" err)))
            nil)))))
 
 (defmacro pi-on-response-success-callback (response &rest body)
@@ -515,57 +515,6 @@ For read/write/edit, the path is rendered as a file-link widget."
     (remhash project-name pi-chats)
     (pi-hash-remove-if (lambda (k _v) (equal (car k) project-name)) pi-event-listeners)))
 
-(define-derived-mode pi-chat-mode nil "pi-chat"
-  "Major mode for pi chat.
-
-\\{pi-chat-mode-map}"
-  (kill-all-local-variables)
-  (let ((inhibit-read-only t))
-    (erase-buffer))
-  (remove-overlays)
-  (setq header-line-format '(:eval (pi-format-header)))
-  (setq pi-prompt-widget
-        (widget-create 'editable-field
-                       :help-echo ""
-                       :format "%[user>%] %v"
-                       :button-face 'pi-chat-role-face
-                       :action (lambda (widget &optional _event)
-                                 (pi-send-prompt (widget-value widget)))))
-  (use-local-map widget-keymap)
-  (widget-setup)
-  (pi-focus-prompt)
-  (add-hook 'kill-buffer-hook 'pi-cleanup-chat-buffer nil t)
-  (pi-register-event-listeners)
-  (pi-update-header-line))
-
-(defvar pi-chat-mode-map
-  (let ((map (make-sparse-keymap)))
-    map))
-
-(defun pi-chat ()
-  "Start a chat window"
-  (interactive)
-  (unless (pi-current-agent)
-    (pi-start-agent))
-  (let ((chat-buffer (or (pi-current-chat)
-                         (progn
-                           (let ((buffer (generate-new-buffer pi-chat-buffer-name))
-                                 (root (pi-project-root)))
-                             (with-current-buffer buffer
-                               (pi-chat-mode)
-                               (setq-local default-directory root))
-                             (puthash (pi-project-name) buffer pi-chats)
-                             buffer)))))
-    (pop-to-buffer chat-buffer)))
-
-
-(defun pi-restart-chat ()
-  "Exist the current chat and restart"
-  (interactive)
-  (when-let (buffer (pi-current-chat))
-    (kill-buffer buffer))
-  (pi-kill-agent)
-  (pi-chat))
 
 ;;; Commands
 
@@ -576,6 +525,15 @@ For read/write/edit, the path is rendered as a file-link widget."
      "prompt" (list :message prompt)
      (pi-on-response-success-callback resp
        (widget-value-set pi-prompt-widget "")))))
+
+(defun pi-abort ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "abort" '()
+     (pi-on-response-success-callback resp
+       (pi-widget-save-excursion
+         (pi-insert-error "Aborted.\n\n"))))))
 
 (defun pi-insert-stats-section (header plist fields)
   "Insert a stats section with HEADER (bold), extracting integers from PLIST.
@@ -662,6 +620,70 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                 (pi-update-header-line)
                 (pi-widget-save-excursion
                   (widget-insert (format "Switched to model: [%s] %s\n\n" provider model-id))))))))))))
+
+
+
+;;; Chat mode
+
+(defvar-keymap pi-chat-mode-map
+  :doc "Keymap for `pi-chat-mode'."
+  :parent (make-composed-keymap widget-keymap special-mode-map)
+  "C-g" #'pi-abort)
+
+(defvar pi-chat-widget-field-keymap
+  (let ((map (make-composed-keymap nil widget-field-keymap)))
+    (keymap-set map "C-g" #'pi-abort)
+    map))
+
+(define-derived-mode pi-chat-mode nil "pi-chat"
+  "Major mode for pi chat.
+
+\\{pi-chat-mode-map}"
+  ;; (kill-all-local-variables)
+  (let ((inhibit-read-only t))
+    (erase-buffer))
+  (remove-overlays)
+  (setq header-line-format '(:eval (pi-format-header)))
+  (setq pi-prompt-widget
+        (widget-create 'editable-field
+                       :keymap pi-chat-widget-field-keymap
+                       :help-echo ""
+                       :format "%[user>%] %v"
+                       :button-face 'pi-chat-role-face
+                       :action (lambda (widget &optional _event)
+                                 (pi-send-prompt (widget-value widget)))))
+  (widget-setup)
+  ;; (use-local-map (make-composed-keymap pi-chat-mode-map widget-keymap))
+  (pi-focus-prompt)
+  (add-hook 'kill-buffer-hook 'pi-cleanup-chat-buffer nil t)
+  (pi-register-event-listeners)
+  (pi-update-header-line))
+
+(defun pi-chat ()
+  "Start a chat window"
+  (interactive)
+  (unless (pi-current-agent)
+    (pi-start-agent))
+  (let ((chat-buffer (or (pi-current-chat)
+                         (progn
+                           (let ((buffer (generate-new-buffer pi-chat-buffer-name))
+                                 (root (pi-project-root)))
+                             (with-current-buffer buffer
+                               (pi-chat-mode)
+                               (setq-local default-directory root))
+                             (puthash (pi-project-name) buffer pi-chats)
+                             buffer)))))
+    (pop-to-buffer chat-buffer)))
+
+
+(defun pi-restart-chat ()
+  "Exist the current chat and restart"
+  (interactive)
+  (when-let (buffer (pi-current-chat))
+    (kill-buffer buffer))
+  (pi-kill-agent)
+  (pi-chat))
+
 
 (provide 'pi)
 
