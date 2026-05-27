@@ -181,6 +181,15 @@ PRED is called with KEY VALUE."
     ;; Preserve text properties
     (buffer-string)))
 
+(defun pi-render-diff (diff)
+  (with-temp-buffer
+    (insert diff)
+    (let ((delay-mode-hooks t))
+      (diff-mode)
+      (font-lock-ensure))
+    (set-buffer-modified-p nil)
+    (buffer-string)))
+
 (defun pi-widget-replace-with-markdown (widget text)
   (let ((inhibit-read-only t))
     (save-excursion
@@ -201,6 +210,8 @@ PRED is called with KEY VALUE."
 (pi-def-permanent-buffer-local pi-message-widget nil)
 (pi-def-permanent-buffer-local pi-thinking-widget nil)
 (pi-def-permanent-buffer-local pi-header-line-state nil)
+(pi-def-permanent-buffer-local pi-current-tool-read-filename nil)
+
 
 (defvar pi-event-listeners (make-hash-table :test 'equal))
 
@@ -484,6 +495,8 @@ PRED is called with KEY VALUE."
 (defun pi-handle-tool-execution-start (event)
   (let* ((tool-name (plist-get event :toolName))
          (args (plist-get event :args)))
+    (when (string= tool-name "read")
+      (setq pi-current-tool-read-filename (plist-get args :path)))
     (pi-widget-save-excursion
       (widget-insert
        (propertize (format "%s " tool-name) 'face 'pi-tool-name-face))
@@ -491,10 +504,33 @@ PRED is called with KEY VALUE."
 
 (defun pi-handle-tool-execution-end (event)
   (let* ((result (plist-get event :result))
-         (result-text (pi-content-text result)))
+         (result-text (pi-content-text result))
+         (is-error (plist-get event :isError))
+         (tool-name (plist-get event :toolName)))
     (pi-widget-save-excursion
-      (when (not (string-empty-p result-text))
-        (widget-insert (format "%s\n" result-text))))))
+      (cond
+       ((eq is-error t)
+        (when (not (string-empty-p result-text))
+          (pi-insert-error (format "%s\n" result-text))))
+       ((string= tool-name "read")
+        (when (not (string-empty-p result-text))
+          (let ((truncated-line nil))
+            (when (string-match "\n\\(\\[.*more lines.*continue.\\]\\)$" result-text)
+              (setq truncated-line (match-string 1 result-text)
+                    result-text (replace-match "" nil nil result-text)))
+            (widget-insert (pi-render-content pi-current-tool-read-filename result-text))
+            (widget-insert (format "%s\n" (or truncated-line ""))))))
+       ((string= tool-name "edit")
+        (when-let ((details (plist-get result :details))
+                   (diff (plist-get details :diff)))
+          (widget-insert (pi-render-diff diff))
+          (widget-insert "\n"))
+        (when (not (string-empty-p result-text))
+          (widget-insert (format "%s\n" result-text))))
+       (t
+        (when (not (string-empty-p result-text))
+          (widget-insert (format "%s\n" result-text))))))
+    (setq pi-current-tool-read-filename nil)))
 
 (defun pi-handle-auto-retry-start (event)
   (let ((attempt (plist-get event :attempt))
@@ -617,7 +653,8 @@ PRED is called with KEY VALUE."
      "abort" '()
      (pi-on-response-success-callback resp
        (pi-widget-save-excursion
-         (pi-insert-error "Aborted.\n\n"))))))
+         (pi-insert-error "Aborted.\n\n")))))
+  (keyboard-quit))
 
 (defun pi-insert-stats-section (header plist fields)
   "Insert a stats section with HEADER (bold), extracting integers from PLIST.
