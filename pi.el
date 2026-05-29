@@ -732,7 +732,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
               (items
                (mapcar
                 (lambda (m)
-                  (cons (format "[%s] %s" (plist-get m :provider) (plist-get m :id))
+                  (cons (format "(%s) %s" (plist-get m :provider) (plist-get m :id))
                         m))
                 models)))
          (if (null items)
@@ -747,7 +747,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                 (pi-update-header-line)
                 (pi-widget-save-excursion
                   (pi-create-section "model" 'model pi-root-section
-                   (insert (format "Switched to model: [%s] %s\n\n" provider model-id)))))))))))))
+                   (insert (format "Switched to model: (%s) %s\n\n" provider model-id)))))))))))))
 
 
 
