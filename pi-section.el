@@ -275,9 +275,9 @@
         (pi-insert-section build
           (insert "[-] Build\n"))
         (pi-insert-section compile
-            (insert "  [-] Compile\n")
-            (insert "      Compiling foo.c\n")
-            (insert "      Compiling bar.c\n"))
+          (insert "  [-] Compile\n")
+          (insert "      Compiling foo.c\n")
+          (insert "      Compiling bar.c\n"))
         (pi-insert-section tests
           (insert "  [-] Tests\n"))
         (pi-insert-section unit-tests

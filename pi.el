@@ -167,7 +167,7 @@ PRED is called with KEY VALUE."
          (when-let (err (plist-get ,resp-sym :error))
            (pi-widget-save-excursion
              (pi-create-section "error" 'error pi-root-section
-              (pi-insert-error (format "%s\n\n" err))))
+               (pi-insert-error (format "%s\n\n" err))))
            nil)))))
 
 (defmacro pi-on-response-success-callback (response &rest body)
@@ -600,10 +600,10 @@ PRED is called with KEY VALUE."
     (when (equal type "message_end")
       (when (and (equal role "assistant") (not (string-empty-p text)))
         (pi-widget-save-excursion
-         (pi-replace-section pi-text-section
-           (pi-insert-role-prefix role)
-           (insert (pi-render-markdown text))
-           (pi-insert-message-tail))))
+          (pi-replace-section pi-text-section
+            (pi-insert-role-prefix role)
+            (insert (pi-render-markdown text))
+            (pi-insert-message-tail))))
       ;; Cleanup tracking state
       (setq pi-text-section nil
             pi-thinking-section nil))))
@@ -668,9 +668,9 @@ PRED is called with KEY VALUE."
          (tool-name (plist-get event :toolName)))
     (when pi-current-tool-section
       (pi-widget-save-excursion
-       (pi-append-section pi-current-tool-section
-         (pi-insert-tool-result tool-name result-text is-error
-                                (plist-get result :details)))))
+        (pi-append-section pi-current-tool-section
+          (pi-insert-tool-result tool-name result-text is-error
+                                 (plist-get result :details)))))
     (setq pi-current-tool-read-filename nil
           pi-current-tool-section nil)))
 
@@ -682,10 +682,10 @@ PRED is called with KEY VALUE."
     (when (and error-message (not (string-empty-p error-message)))
       (pi-widget-save-excursion
         (pi-create-section "error" 'error pi-root-section
-         (pi-insert-error (format "Error: %s\n\n" error-message))
-         (insert
-          (propertize (format "Retrying %d/%d (waiting %ds)…\n\n" attempt max-attempts (/ delay-ms 1000))
-                      'face 'pi-thinking-face)))))))
+          (pi-insert-error (format "Error: %s\n\n" error-message))
+          (insert
+           (propertize (format "Retrying %d/%d (waiting %ds)…\n\n" attempt max-attempts (/ delay-ms 1000))
+                       'face 'pi-thinking-face)))))))
 
 (defun pi-handle-auto-retry-end (event)
   (let ((attempt (plist-get event :attempt))
@@ -693,8 +693,8 @@ PRED is called with KEY VALUE."
     (unless (pi-response-success-p event)
       (pi-widget-save-excursion
         (pi-create-section "error" 'error pi-root-section
-         (pi-insert-error
-          (format "Error: Retry failed after %d attempts: %s\n\n" attempt final-error)))))))
+          (pi-insert-error
+           (format "Error: Retry failed after %d attempts: %s\n\n" attempt final-error)))))))
 
 (defun pi-handle-header-line-update (_event)
   (pi-update-header-line))
@@ -752,13 +752,13 @@ PRED is called with KEY VALUE."
                       "?")))
     (let* ((state-str (pi-format-state))
            (left (format "%s/%s (%s) • %s"
-                        usage-str ctx-str
-                        (if auto-compact "auto" "manual")
-                        state-str))
+                         usage-str ctx-str
+                         (if auto-compact "auto" "manual")
+                         state-str))
            (right (format "(%s) %s • %s"
-                        (or provider "?")
-                        (or model-id "?")
-                        (or thinking-level "?"))))
+                          (or provider "?")
+                          (or model-id "?")
+                          (or thinking-level "?"))))
       (format "%s%s%s"
               left
               (make-string (max 1 (- (window-width) (length left) (length right))) ?\s)
@@ -849,49 +849,49 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
               (tokens (plist-get data :tokens))
               (cost (plist-get data :cost)))
          (pi-widget-save-excursion
-          (pi-create-section "session" 'session pi-root-section
-            (insert
-             (propertize "Session Info\n" 'face 'bold))
+           (pi-create-section "session" 'session pi-root-section
+             (insert
+              (propertize "Session Info\n" 'face 'bold))
 
-            (insert " File: ")
-            (widget-create 'file-link
-                           :button-prefix ""
-                           :button-suffix ""
-                           (plist-get data :sessionFile))
-            (insert "\n")
+             (insert " File: ")
+             (widget-create 'file-link
+                            :button-prefix ""
+                            :button-suffix ""
+                            (plist-get data :sessionFile))
+             (insert "\n")
 
-            (insert
-             (format " ID: %s\n\n"
-                     (plist-get data :sessionId)))
+             (insert
+              (format " ID: %s\n\n"
+                      (plist-get data :sessionId)))
 
-            (pi-insert-stats-section
-             "Messages"
-             data
-             '(("User" . :userMessages)
-               ("Assistant" . :assistantMessages)
-               ("Tool Calls" . :toolCalls)
-               ("Tool Results" . :toolResults)
-               ("Total" . :totalMessages)))
+             (pi-insert-stats-section
+              "Messages"
+              data
+              '(("User" . :userMessages)
+                ("Assistant" . :assistantMessages)
+                ("Tool Calls" . :toolCalls)
+                ("Tool Results" . :toolResults)
+                ("Total" . :totalMessages)))
 
-            (insert "\n")
+             (insert "\n")
 
-            (pi-insert-stats-section
-             "Tokens"
-             tokens
-             '(("Input" . :input)
-               ("Output" . :output)
-               ("Cache Read" . :cacheRead)
-               ("Total" . :total)))
+             (pi-insert-stats-section
+              "Tokens"
+              tokens
+              '(("Input" . :input)
+                ("Output" . :output)
+                ("Cache Read" . :cacheRead)
+                ("Total" . :total)))
 
-            (insert "\n")
+             (insert "\n")
 
-            (insert
-             (propertize "Cost\n" 'face 'bold))
+             (insert
+              (propertize "Cost\n" 'face 'bold))
 
-            (insert
-             (format " Total: %.4f\n" cost))
+             (insert
+              (format " Total: %.4f\n" cost))
 
-            (insert "\n\n"))))))))
+             (insert "\n\n"))))))))
 
 (defun pi-select-model ()
   (interactive)
@@ -918,7 +918,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                 (pi-update-header-line)
                 (pi-widget-save-excursion
                   (pi-create-section "model" 'model pi-root-section
-                   (insert (format "Switched to model: (%s) %s\n\n" provider model-id)))))))))))))
+                    (insert (format "Switched to model: (%s) %s\n\n" provider model-id)))))))))))))
 
 
 (cl-defstruct pi-session-choice
