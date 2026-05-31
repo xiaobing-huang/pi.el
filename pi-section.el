@@ -38,9 +38,12 @@
     s))
 
 (defun pi-create-root-section ()
+  (when pi-root-section
+    (error "Root section already exists."))
   (let ((root (pi-new-section "Root" 'root nil)))
     (setf (pi-section-beginning root) (point-min))
     (setf (pi-section-end root) (point-min-marker))
+    (setq pi-root-section root)
     root))
 
 (defmacro pi-insert-section (section &rest body)
@@ -89,6 +92,16 @@
        (pi-update-section-end ,s (point-marker))
        (pi-propertize-section ,s)
        ,s)))
+
+(defun pi-delete-section (section)
+  (let ((beg (pi-section-beginning section))
+        (end (pi-section-end section))
+        (parent (pi-section-parent section)))
+    (delete-region beg end)
+    (when parent
+      (setf (pi-section-children parent)
+            (delq section (pi-section-children parent)))
+      (pi-update-section-end parent beg))))
 
 (defun pi-update-section-end (section end)
   (when section
@@ -331,7 +344,7 @@ Does not recurse into the parent."
     (let ((children (pi-section-children section)))
       (when children
         (princ (format "%s  Children:\n" prefix))
-        (dolist (child (reverse children))
+        (dolist (child children)
           (pi-describe-section child (1+ indent)))))))
 
 (provide 'pi-section)

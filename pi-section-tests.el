@@ -335,6 +335,77 @@
       (should prev)
       (should (equal (pi-section-title prev) "Build")))))
 
+;; ─── pi-delete-section ────────────────────────────────────────────
+
+(ert-deftest pi-section-delete-removes-content ()
+  (pi-section-tests-with-demo-buffer
+    (goto-char 1)
+    (let ((build (pi-current-section)))
+      (pi-delete-section build)
+      (should (not (search-forward "[-] Build" nil t)))
+      (should (looking-at (regexp-quote "[-] Logs\n"))))))
+
+(ert-deftest pi-section-delete-removes-from-parent-children ()
+  (pi-section-tests-with-demo-buffer
+    (goto-char 1)
+    (let ((build (pi-current-section)))
+      (pi-delete-section build)
+      (should (not (memq build (pi-section-children pi-root-section))))
+      ;; other root children remain
+      (let ((remaining-titles
+             (mapcar #'pi-section-title (pi-section-children pi-root-section))))
+        (should (equal remaining-titles '("Logs" "Deploy")))))))
+
+(ert-deftest pi-section-delete-updates-parent-end ()
+  (pi-section-tests-with-demo-buffer
+    (goto-char 1)
+    (let* ((build (pi-current-section))
+           (old-parent-end (marker-position (pi-section-end pi-root-section)))
+           (build-size (- (marker-position (pi-section-end build))
+                          (pi-section-beginning build))))
+      (pi-delete-section build)
+      (should (= (marker-position (pi-section-end pi-root-section))
+                 (- old-parent-end build-size))))))
+
+(ert-deftest pi-section-delete-middle-child ()
+  (pi-section-tests-with-demo-buffer
+    (goto-char (point-min))
+    (forward-line 10)
+    (let ((logs (pi-current-section)))
+      (pi-delete-section logs)
+      (goto-char (point-min))
+      (should (looking-at (regexp-quote "[-] Build\n")))
+      (forward-line 10)
+      (should (looking-at (regexp-quote "[-] Deploy\n")))
+      (let ((remaining-titles
+             (mapcar #'pi-section-title (pi-section-children pi-root-section))))
+        (should (equal remaining-titles '("Build" "Deploy")))))))
+
+(ert-deftest pi-section-delete-leaf-child ()
+  (pi-section-tests-with-demo-buffer
+    (goto-char (point-min))
+    (forward-line 1)
+    (let* ((compile (pi-current-section))
+           (build (pi-section-parent compile)))
+      (pi-delete-section compile)
+      (should (not (memq compile (pi-section-children build))))
+      (goto-char (pi-section-beginning build))
+      (should (looking-at (regexp-quote "[-] Build\n")))
+      (forward-line 1)
+      (should (looking-at (regexp-quote "  [-] Tests\n"))))))
+
+(ert-deftest pi-section-delete-nested-content-gone ()
+  (pi-section-tests-with-demo-buffer
+    (goto-char (point-min))
+    (forward-line 10)
+    (let ((logs (pi-current-section)))
+      (pi-delete-section logs)
+      (goto-char (point-min))
+      ;; server and worker content should be gone
+      (should (not (search-forward "Connected client" nil t)))
+      (should (not (search-forward "Job" nil t))))))
+
+
 ;; ─── pi-update-section-end ─────────────────────────────────────────────
 
 (ert-deftest pi-update-section-end-expands ()

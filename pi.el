@@ -6,7 +6,7 @@
 ;; URL: http://github.com/ananthakumaran/pi.el
 ;; Version: 0.1
 ;; Keywords: pi agent
-;; Package-Requires: ((emacs "28.1") (markdown-mode "2.8"))
+;; Package-Requires: ((emacs "28.1") (compat  "31.0") (markdown-mode "2.8"))
 
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -33,7 +33,10 @@
 (require 'wid-edit)
 (require 'ring)
 (require 'markdown-mode)
+(require 'cl-lib)
 (require 'pi-section)
+(require 'subr-x)
+(require 'parse-time)
 
 (defgroup pi nil
   "Emacs UI for Pi."
@@ -87,6 +90,11 @@
 
 (defcustom pi-prompt-history-max-size 500
   "Maximum number of prompt history entries to keep."
+  :type 'integer
+  :group 'pi)
+
+(defcustom pi-resume-max-sessions 100
+  "Maximum number of recent sessions to list when resuming a session."
   :type 'integer
   :group 'pi)
 
@@ -463,6 +471,97 @@ PRED is called with KEY VALUE."
 (defun pi-content-thinking (message)
   (pi-content-join message "thinking"))
 
+(defun pi-content-tool-call (message)
+  (cl-find-if
+   (lambda (item)
+     (equal (plist-get item :type) "toolCall"))
+   (plist-get message :content)))
+
+(defun pi-insert-role-prefix (role)
+  (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face)))
+
+(defun pi-insert-thinking (text)
+  (insert (propertize text 'face 'pi-thinking-face)))
+
+(defun pi-insert-message-tail ()
+  (insert "\n\n"))
+
+(defun pi-insert-tool-name (tool-name)
+  (insert (propertize (format "%s " tool-name) 'face 'pi-tool-name-face)))
+
+(defun pi-insert-tool-result (tool-name result-text is-error &optional details)
+  (cond
+   ((eq is-error t)
+    (when (not (string-empty-p result-text))
+      (pi-insert-error (format "%s\n" result-text))))
+   ((string= tool-name "read")
+    (when (and (not (string-empty-p result-text)) pi-current-tool-read-filename)
+      (let ((truncated-line nil))
+        (when (string-match "\n\\(\\[.*more lines.*continue.\\]\\)$" result-text)
+          (setq truncated-line (match-string 1 result-text)
+                result-text (replace-match "" nil nil result-text)))
+        (insert (pi-render-content pi-current-tool-read-filename result-text))
+        (insert (format "%s\n" (or truncated-line ""))))))
+   ((string= tool-name "edit")
+    (when-let ((diff (plist-get details :diff)))
+      (insert (pi-render-diff diff))
+      (insert "\n"))
+    (when (not (string-empty-p result-text))
+      (insert (format "%s\n" result-text))))
+   (t
+    (when (not (string-empty-p result-text))
+      (insert (format "%s\n" result-text))))))
+
+(defun pi-insert-message (message)
+  (pcase (pi-message-role message)
+    ("user"
+     (let ((text (pi-content-text message)))
+       (unless (string-empty-p text)
+         (pi-widget-save-excursion
+           (pi-create-section "user" 'user pi-root-section
+             (pi-insert-role-prefix "user")
+             (insert text)
+             (pi-insert-message-tail))))))
+
+    ("assistant"
+     (let ((thinking-text (pi-content-thinking message))
+           (text (pi-content-text message))
+           (tool-call (pi-content-tool-call message)))
+       (unless (string-empty-p thinking-text)
+         (pi-widget-save-excursion
+           (pi-create-section "thinking" 'thinking pi-root-section
+             (pi-insert-role-prefix "assistant")
+             (pi-insert-thinking thinking-text)
+             (pi-insert-message-tail))))
+       (unless (string-empty-p text)
+         (pi-widget-save-excursion
+           (pi-create-section "text" 'text pi-root-section
+             (pi-insert-role-prefix "assistant")
+             (insert (pi-render-markdown text))
+             (pi-insert-message-tail))))
+       (when tool-call
+         (let ((tool-name (plist-get tool-call :name))
+               (args (plist-get tool-call :arguments)))
+           (when (string= tool-name "read")
+             (setq pi-current-tool-read-filename (plist-get args :path)))
+           (pi-widget-save-excursion
+             (setq pi-current-tool-section (pi-new-section tool-name 'tool pi-root-section))
+             (pi-insert-section pi-current-tool-section
+               (pi-insert-tool-name tool-name)
+               (pi-format-tool-args tool-name args)))))))
+
+    ("toolResult"
+     (let ((tool-name (plist-get message :toolName))
+           (result-text (pi-content-text message))
+           (is-error (plist-get message :isError))
+           (details (plist-get message :details)))
+       (when pi-current-tool-section
+         (pi-widget-save-excursion
+           (pi-append-section pi-current-tool-section
+             (pi-insert-tool-result tool-name result-text is-error details))))
+       (setq pi-current-tool-section nil
+             pi-current-tool-read-filename nil)))))
+
 (defun pi-handle-noop (_event)
   nil)
 
@@ -477,34 +576,34 @@ PRED is called with KEY VALUE."
         (pi-widget-save-excursion
           (if pi-thinking-section
               (pi-replace-section pi-thinking-section
-                (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face))
-                (insert (propertize thinking-text 'face 'pi-thinking-face))
-                (insert "\n\n"))
+                (pi-insert-role-prefix role)
+                (pi-insert-thinking thinking-text)
+                (pi-insert-message-tail))
             (setq pi-thinking-section (pi-new-section "thinking" 'thinking pi-root-section))
             (pi-insert-section pi-thinking-section
-              (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face))
-              (insert (propertize thinking-text 'face 'pi-thinking-face))
-              (insert "\n\n")))))
+              (pi-insert-role-prefix role)
+              (pi-insert-thinking thinking-text)
+              (pi-insert-message-tail)))))
 
       (unless (string-empty-p text)
         (pi-widget-save-excursion
           (if pi-text-section
               (pi-replace-section pi-text-section
-                (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face))
+                (pi-insert-role-prefix role)
                 (insert text)
-                (insert "\n\n"))
+                (pi-insert-message-tail))
             (setq pi-text-section (pi-new-section "text" 'text pi-root-section))
             (pi-insert-section pi-text-section
-              (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face))
+              (pi-insert-role-prefix role)
               (insert text)
-              (insert "\n\n"))))))
+              (pi-insert-message-tail))))))
     (when (equal type "message_end")
       (when (and (equal role "assistant") (not (string-empty-p text)))
         (pi-widget-save-excursion
          (pi-replace-section pi-text-section
-           (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face))
+           (pi-insert-role-prefix role)
            (insert (pi-render-markdown text))
-           (insert "\n\n"))))
+           (pi-insert-message-tail))))
       ;; Cleanup tracking state
       (setq pi-text-section nil
             pi-thinking-section nil))))
@@ -559,8 +658,7 @@ PRED is called with KEY VALUE."
     (pi-widget-save-excursion
       (setq pi-current-tool-section (pi-new-section tool-name 'tool pi-root-section))
       (pi-insert-section pi-current-tool-section
-        (insert
-         (propertize (format "%s " tool-name) 'face 'pi-tool-name-face))
+        (pi-insert-tool-name tool-name)
         (pi-format-tool-args tool-name args)))))
 
 (defun pi-handle-tool-execution-end (event)
@@ -571,28 +669,8 @@ PRED is called with KEY VALUE."
     (when pi-current-tool-section
       (pi-widget-save-excursion
        (pi-append-section pi-current-tool-section
-         (cond
-          ((eq is-error t)
-           (when (not (string-empty-p result-text))
-             (pi-insert-error (format "%s\n" result-text))))
-          ((string= tool-name "read")
-           (when (not (string-empty-p result-text))
-             (let ((truncated-line nil))
-               (when (string-match "\n\\(\\[.*more lines.*continue.\\]\\)$" result-text)
-                 (setq truncated-line (match-string 1 result-text)
-                       result-text (replace-match "" nil nil result-text)))
-               (insert (pi-render-content pi-current-tool-read-filename result-text))
-               (insert (format "%s\n" (or truncated-line ""))))))
-          ((string= tool-name "edit")
-           (when-let ((details (plist-get result :details))
-                      (diff (plist-get details :diff)))
-             (insert (pi-render-diff diff))
-             (insert "\n"))
-           (when (not (string-empty-p result-text))
-             (insert (format "%s\n" result-text))))
-          (t
-           (when (not (string-empty-p result-text))
-             (insert (format "%s\n" result-text))))))))
+         (pi-insert-tool-result tool-name result-text is-error
+                                (plist-get result :details)))))
     (setq pi-current-tool-read-filename nil
           pi-current-tool-section nil)))
 
@@ -843,12 +921,114 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                    (insert (format "Switched to model: (%s) %s\n\n" provider model-id)))))))))))))
 
 
+(cl-defstruct pi-session-choice
+  id message timestamp cwd path)
+
+(defun pi-read-session-choice (filename)
+  (with-temp-buffer
+    (insert-file-contents filename nil 0 5000)
+    (goto-char (point-min))
+    (let ((id nil) (timestamp nil) (cwd nil) (first-text nil)
+          (lines-read 0))
+      (while (and (null first-text) (< lines-read 10) (not (eobp)))
+        (let ((line (buffer-substring-no-properties
+                     (line-beginning-position) (line-end-position))))
+          (unless (string-empty-p line)
+            (condition-case nil
+                (let ((json (json-parse-string line :object-type 'plist)))
+                  (pcase (intern (plist-get json :type))
+                    ('session
+                     (setq id (plist-get json :id)
+                           timestamp (plist-get json :timestamp)
+                           cwd (plist-get json :cwd)))
+                    ('message
+                     (let ((first-msg-text (pi-content-text (plist-get json :message))))
+                       (when (and (not (string-empty-p first-msg-text))
+                                  (null first-text))
+                         (setq first-text (truncate-string-to-width first-msg-text 80 nil nil t)))))))
+              (error nil))))
+        (forward-line 1)
+        (cl-incf lines-read))
+      (make-pi-session-choice :id id
+                              :path filename
+                              :timestamp (when timestamp
+                                           (condition-case nil
+                                               (parse-iso8601-time-string timestamp)
+                                             (error nil)))
+                              :cwd cwd
+                              :message first-text))))
+
+(defun pi-resume ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_state" '()
+     (lambda (resp)
+       (when (pi-response-success-p resp)
+         (let* ((data (plist-get resp :data))
+                (session-file (plist-get data :sessionFile))
+                (session-dir (file-name-directory session-file))
+                (files (when session-dir
+                         (seq-take
+                          (sort (directory-files session-dir t "\\.jsonl$")
+                                #'string>)
+                          pi-resume-max-sessions)))
+                (sessions (mapcar #'pi-read-session-choice files)))
+           (if (null sessions)
+               (message "No session files found in %s" session-dir)
+             (let* ((candidates
+                     (mapcar
+                      (lambda (s)
+                        (let* ((ts (pi-session-choice-timestamp s))
+                               (formatted-time (if ts
+                                                   (format-time-string "%Y-%m-%d %H:%M" ts)
+                                                 ""))
+                               (dir (when-let ((cwd (pi-session-choice-cwd s)))
+                                      (file-name-nondirectory cwd))))
+                          (cons (format "%s  (%s)  %s" formatted-time dir (pi-session-choice-message s)) s)))
+                      sessions))
+                    (selected (completing-read "Resume session: "
+                                               (lambda (string pred action)
+                                                 (if (eq action 'metadata)
+                                                     '(metadata (display-sort-function . identity))
+                                                   (complete-with-action action candidates string pred)))
+                                               nil t))
+                    (choice (alist-get selected candidates nil nil #'equal))
+                    (session-path (pi-session-choice-path choice)))
+               (pi-send-command
+                "switch_session" (list :sessionPath session-path)
+                (pi-on-response-success-callback resp
+                  (let ((cancelled (plist-get (plist-get resp :data) :cancelled)))
+                    (if (eq cancelled t)
+                        (pi-widget-save-excursion
+                          (pi-create-section "error" 'error pi-root-section
+                            (pi-insert-error "Session switch cancelled.\n\n")))
+                      (pi-refresh-session)))))))))))))
+
+(defun pi-refresh-session ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_messages" '()
+     (pi-on-response-success-callback resp
+       (let ((messages (plist-get (plist-get resp :data) :messages)))
+         (pi-widget-save-excursion
+           (dolist (child (copy-sequence (pi-section-children pi-root-section)))
+             (pi-delete-section child))
+           (setq pi-text-section nil
+                 pi-thinking-section nil
+                 pi-current-tool-section nil
+                 pi-current-tool-read-filename nil)
+           (dolist (message messages)
+             (pi-insert-message message))))))))
+
+
 
 ;;; Chat mode
 
 (defvar-keymap pi-chat-mode-map
   :doc "Keymap for `pi-chat-mode'."
-  :parent (make-composed-keymap widget-keymap special-mode-map)
+  :parent special-mode-map
   "C-g" #'pi-abort
   "TAB" #'pi-toggle-section
   "C-i" #'pi-toggle-section
@@ -871,7 +1051,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
 
 \\{pi-chat-mode-map}"
   (setq header-line-format '(:eval (pi-format-header)))
-  (setq pi-root-section (pi-create-root-section))
+  (pi-create-root-section)
   (setq pi-prompt-history (make-ring pi-prompt-history-max-size))
   (setq pi-prompt-widget
         (widget-create 'editable-field
@@ -887,6 +1067,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
   (pi-register-event-listeners)
   (pi-update-header-line))
 
+;;;###autoload
 (defun pi-chat ()
   "Start a chat window"
   (interactive)
