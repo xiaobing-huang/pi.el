@@ -6,7 +6,7 @@
 ;; URL: http://github.com/ananthakumaran/pi.el
 ;; Version: 0.1
 ;; Keywords: pi agent
-;; Package-Requires: ((emacs "28.1") (compat  "31.0") (markdown-mode "2.8"))
+;; Package-Requires: ((emacs "28.1") (compat  "31.0") (markdown-mode "2.8") (timeout "2.1.7"))
 
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@
 (require 'pi-section)
 (require 'subr-x)
 (require 'parse-time)
+(require 'timeout)
 
 (defgroup pi nil
   "Emacs UI for Pi."
@@ -127,6 +128,7 @@
 (defun pi-format-number-short (n)
   "Format number N into a short human-readable string with K/M/B suffixes."
   (cond
+   ((not (numberp n)) "?")
    ((>= n 1000000000)
     (format "%.1fB" (/ n 1000000000.0)))
    ((>= n 1000000)
@@ -248,14 +250,8 @@ PRED is called with KEY VALUE."
 (pi-def-permanent-buffer-local pi-current-tool-section nil)
 (pi-def-permanent-buffer-local pi-agent-state nil)
 
-
 (defvar pi-event-listeners (make-hash-table :test 'equal))
 
-(defun pi-agent-buffer-name ()
-  (format "*pi-agent:%s*" (pi-project-name)))
-
-(defun pi-chat-buffer-name ()
-  (format "*pi-chat:%s*" (pi-project-name)))
 (defvar pi-request-counter 0)
 
 ;;; History
@@ -311,6 +307,12 @@ PRED is called with KEY VALUE."
 
 (defun pi-project-name ()
   (file-name-nondirectory (directory-file-name (pi-project-root))))
+
+(defun pi-agent-buffer-name ()
+  (format "*pi-agent:%s*" (pi-project-name)))
+
+(defun pi-chat-buffer-name ()
+  (format "*pi-chat:%s*" (pi-project-name)))
 
 (defun pi-project-key ()
   "Unique key for the current project, used for internal hash tables."
@@ -626,8 +628,6 @@ PRED is called with KEY VALUE."
        (setq pi-current-tool-section nil
              pi-current-tool-read-filename nil)))))
 
-(defun pi-handle-noop (_event)
-  nil)
 
 (defun pi-handle-message-update (event)
   (let* ((message (plist-get event :message))
@@ -760,27 +760,37 @@ PRED is called with KEY VALUE."
           (pi-insert-error
            (format "Error: Retry failed after %d attempts: %s\n\n" attempt final-error)))))))
 
-(defun pi-handle-header-line-update (_event)
-  (pi-update-header-line))
-
+(defun pi-handle-compaction-end (event)
+  (let* ((result (plist-get event :result))
+         (error-message (plist-get event :errorMessage)))
+    (cond
+     (error-message
+      (pi-widget-save-excursion
+        (pi-create-section "error" 'error pi-root-section
+          (pi-insert-error error-message)
+          (pi-insert-message-tail))))
+     (result
+      (let* ((summary (plist-get result :summary))
+             (tokens-before (plist-get result :tokensBefore))
+             (header (format "**Compacted from %s tokens**\n\n"
+                             (pi-format-number-short tokens-before))))
+        (pi-widget-save-excursion
+          (pi-create-section "compact" 'compact pi-root-section
+            (pi-insert-role-prefix "assistant")
+            (insert (pi-render-markdown (concat header summary)))
+            (pi-insert-message-tail))))))))
 
 (defun pi-register-event-listeners ()
-  (pi-set-event-listener "message_start" #'pi-handle-noop)
   (pi-set-event-listener "message_update" #'pi-handle-message-update)
   (pi-set-event-listener "message_end" #'pi-handle-message-update)
 
-  (pi-set-event-listener "agent_start" #'pi-handle-noop)
-  (pi-set-event-listener "agent_end" #'pi-handle-header-line-update)
-
-  (pi-set-event-listener "turn_start" #'pi-handle-noop)
-  (pi-set-event-listener "turn_end" #'pi-handle-header-line-update)
-
   (pi-set-event-listener "tool_execution_start" #'pi-handle-tool-execution-start)
-  (pi-set-event-listener "tool_execution_update" #'pi-handle-noop)
   (pi-set-event-listener "tool_execution_end" #'pi-handle-tool-execution-end)
 
   (pi-set-event-listener "auto_retry_start" #'pi-handle-auto-retry-start)
   (pi-set-event-listener "auto_retry_end" #'pi-handle-auto-retry-end)
+
+  (pi-set-event-listener "compaction_end" #'pi-handle-compaction-end)
   (pi-set-event-listener t #'pi-handle-agent-state))
 
 (defun pi-focus-prompt ()
@@ -808,12 +818,8 @@ PRED is called with KEY VALUE."
          (context-usage (plist-get session-stats :contextUsage))
          (ctx-tokens (plist-get context-usage :tokens))
          (ctx-window-usage (plist-get context-usage :contextWindow))
-         (ctx-str (if ctx-window-usage
-                      (pi-format-number-short ctx-window-usage)
-                    "?"))
-         (usage-str (if ctx-tokens
-                        (pi-format-number-short ctx-tokens)
-                      "?")))
+         (ctx-str (pi-format-number-short ctx-window-usage))
+         (usage-str (pi-format-number-short ctx-tokens)))
     (let* ((state-str (pi-format-state))
            (left (format "%s/%s (%s) • %s"
                          usage-str ctx-str
@@ -848,6 +854,8 @@ PRED is called with KEY VALUE."
        (setq stats-result (plist-get resp :data))
        (funcall try-update)))))
 
+(timeout-debounce 'pi-update-header-line 1)
+
 (defun pi-handle-agent-state (event)
   (cl-case (intern (plist-get event :type))
     (agent_start (setq pi-agent-state 'thinking))
@@ -855,11 +863,12 @@ PRED is called with KEY VALUE."
     (turn_start (setq pi-agent-state 'thinking))
     (turn_end (setq pi-agent-state nil))
     (tool_execution_start (setq pi-agent-state (cons 'tool (plist-get event :toolName))))
-    (tool_execution_end (setq pi-agent-state 'thinking))
+    (tool_execution_end (setq pi-agent-state nil))
     (compaction_start (setq pi-agent-state 'compacting))
-    (compaction_end (setq pi-agent-state 'thinking))
+    (compaction_end (setq pi-agent-state nil))
     (auto_retry_start (setq pi-agent-state 'retrying))
-    (auto_retry_end (setq pi-agent-state 'thinking))))
+    (auto_retry_end (setq pi-agent-state nil)))
+  (pi-update-header-line))
 
 (defun pi-cleanup-chat-buffer ()
   (let ((project-key (pi-project-key)))
@@ -1162,6 +1171,20 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                  (pi-insert-error "New session cancelled.\n\n")))
            (pi-widget-save-excursion
              (pi-clear-sections))))))))
+
+(defun pi-compact (&optional custom-instructions)
+  "Compact the current session to reduce context usage.
+
+With prefix argument, prompt for custom instructions to guide the
+summarization."
+  (interactive
+   (list (when current-prefix-arg
+           (read-string "Custom instructions for compaction: "))))
+  (pi-with-chat-buffer
+    (let ((args (if custom-instructions
+                    (list :customInstructions custom-instructions)
+                  '())))
+      (pi-send-command "compact" args))))
 
 ;;; Chat mode
 
