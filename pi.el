@@ -1065,6 +1065,14 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                             (pi-insert-error "Session switch cancelled.\n\n")))
                       (pi-refresh-session)))))))))))))
 
+(defun pi-clear-sections ()
+  (dolist (child (copy-sequence (pi-section-children pi-root-section)))
+    (pi-delete-section child))
+  (setq pi-text-section nil
+        pi-thinking-section nil
+        pi-current-tool-section nil
+        pi-current-tool-read-filename nil))
+
 (defun pi-refresh-session ()
   (interactive)
   (pi-with-chat-buffer
@@ -1073,16 +1081,23 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
      (pi-on-response-success-callback resp
        (let ((messages (plist-get (plist-get resp :data) :messages)))
          (pi-widget-save-excursion
-           (dolist (child (copy-sequence (pi-section-children pi-root-section)))
-             (pi-delete-section child))
-           (setq pi-text-section nil
-                 pi-thinking-section nil
-                 pi-current-tool-section nil
-                 pi-current-tool-read-filename nil)
+           (pi-clear-sections)
            (dolist (message messages)
              (pi-insert-message message))))))))
 
-
+(defun pi-new-session ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "new_session" '()
+     (pi-on-response-success-callback resp
+       (let ((cancelled (plist-get (plist-get resp :data) :cancelled)))
+         (if (eq cancelled t)
+             (pi-widget-save-excursion
+               (pi-create-section "error" 'error pi-root-section
+                 (pi-insert-error "New session cancelled.\n\n")))
+           (pi-widget-save-excursion
+             (pi-clear-sections))))))))
 
 ;;; Chat mode
 
