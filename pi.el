@@ -150,6 +150,10 @@
   "Insert TEXT with `pi-error-face'."
   (insert (propertize text 'face 'pi-error-face)))
 
+(defun pi-keyword-name (keyword)
+  "Return the name of KEYWORD as a string without the leading colon."
+  (substring (symbol-name keyword) 1))
+
 (defun pi-seconds-elapsed-since (time)
   (time-to-seconds (time-subtract (current-time) time)))
 
@@ -980,6 +984,66 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                   (pi-create-section "model" 'model pi-root-section
                     (insert (format "Switched to model: (%s) %s\n\n" provider model-id)))))))))))))
 
+(defvar pi-thinking-level-descriptions
+  '((:off     . "No reasoning")
+    (:minimal . "Very brief reasoning (~1k tokens)")
+    (:low     . "Light reasoning (~2k tokens)")
+    (:medium  . "Moderate reasoning (~8k tokens)")
+    (:high    . "Deep reasoning (~16k tokens)")
+    (:xhigh   . "Maximum reasoning (~32k tokens)")))
+
+(defun pi-get-supported-thinking-levels (model)
+  (let ((thinking-level-map (plist-get model :thinkingLevelMap))
+        (reasoning (plist-get model :reasoning))
+        result)
+    (when (and reasoning (not (eq reasoning 'json-false)))
+      (dolist (level '(:minimal :low :medium :high :xhigh))
+        (let ((mapped (plist-get thinking-level-map level)))
+          (unless (eq mapped 'json-null)
+            (if (eq level :xhigh)
+                (when mapped
+                  (push level result))
+              (push level result))))))
+    (cons :off (nreverse result))))
+
+(defun pi-set-thinking-level ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_state" '()
+     (pi-on-response-success-callback resp
+       (let* ((data (plist-get resp :data))
+              (model (plist-get data :model))
+              (current-level (when-let ((l (plist-get data :thinkingLevel)))
+                               (intern (concat ":" l))))
+              (supported-levels (pi-get-supported-thinking-levels model))
+              (items
+               (mapcar
+                (lambda (level)
+                  (let* ((name (pi-keyword-name level))
+                         (desc (alist-get level pi-thinking-level-descriptions)))
+                    (cons (if desc
+                              (format "%s — %s" name desc)
+                            name)
+                          level)))
+                supported-levels)))
+         (if (null supported-levels)
+             (message "No thinking levels available for this model.")
+           (let* ((default (or current-level :off))
+                  (default-display (alist-get default items))
+                  (selected-display (completing-read
+                                     (format "Set thinking level (current: %s): "
+                                             (or (plist-get data :thinkingLevel) "?"))
+                                     items nil t nil nil default-display))
+                  (selected (alist-get selected-display items nil nil #'equal))
+                  (selected-str (pi-keyword-name selected)))
+             (pi-send-command
+              "set_thinking_level" (list :level selected-str)
+              (pi-on-response-success-callback resp
+                (pi-update-header-line)
+                (pi-widget-save-excursion
+                  (pi-create-section "thinking" 'thinking pi-root-section
+                    (insert (format "Thinking level set to: %s\n\n" selected-str)))))))))))))
 
 (cl-defstruct pi-session-choice
   id message timestamp cwd path)
