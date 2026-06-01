@@ -88,6 +88,14 @@
   :type 'boolean
   :group 'pi)
 
+(defcustom pi-file-completion-backend 'project
+  "Completion backend for @-prefixed file paths in prompts.
+`project' uses `project-files' to list files in the current project.
+`file' uses `file-name-all-completions' to list files under the project root."
+  :type '(choice (const :tag "Project files" project)
+                 (const :tag "Default file system" file))
+  :group 'pi)
+
 (defcustom pi-prompt-history-max-size 500
   "Maximum number of prompt history entries to keep."
   :type 'integer
@@ -100,6 +108,8 @@
 
 (defvar pi-log-rpc-file "/tmp/pi.el.log"
   "File to write RPC JSON log entries to.")
+
+(defvar-local pi-project-file-cache nil)
 
 (defun pi-maybe-log-rpc (json)
   (when pi-log-rpc
@@ -471,6 +481,36 @@ PRED is called with KEY VALUE."
   (pi-kill-agent)
   (pi-start-agent))
 
+
+;;; Completion
+
+(defun pi-project-file-completions (_prefix)
+  (or pi-project-file-cache
+      (when-let (project (project-current))
+        (let ((default-directory (pi-project-root))
+              (project-files-relative-names t))
+          (setq pi-project-file-cache (project-files project))))))
+
+(defun pi-native-file-completions (prefix)
+  (let* ((dir (or (file-name-directory prefix) ""))
+         (file (file-name-nondirectory prefix))
+         (full-dir (expand-file-name dir (pi-project-root))))
+    (when (file-directory-p full-dir)
+      (let ((candidates (file-name-all-completions file full-dir)))
+        (mapcar (lambda (c) (concat dir c)) candidates)))))
+
+(defun pi-completion-at-point ()
+  (let ((end (point)))
+    (save-excursion
+      (when (re-search-backward "@\\([^\t\n ]*\\)" (line-beginning-position) t)
+        (let* ((start (match-beginning 1))
+               (prefix (match-string 1))
+               (completions
+                (if (eq pi-file-completion-backend 'project)
+                    (pi-project-file-completions prefix)
+                  (pi-native-file-completions prefix))))
+          (when completions
+            (list start end completions :category 'file)))))))
 
 ;;; Chat
 
@@ -1075,6 +1115,8 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
   (setq header-line-format '(:eval (pi-format-header)))
   (pi-create-root-section)
   (setq pi-prompt-history (make-ring pi-prompt-history-max-size))
+  (setq-local completion-at-point-functions
+              (cons #'pi-completion-at-point completion-at-point-functions))
   (setq pi-prompt-widget
         (widget-create 'editable-field
                        :keymap pi-chat-widget-field-keymap
