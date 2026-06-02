@@ -557,6 +557,25 @@ PRED is called with KEY VALUE."
 
 (defun pi-insert-tool-result (tool-name result-text is-error &optional details)
   (cond
+   ((string= tool-name "bash")
+    (let* ((exit-code (plist-get details :exitCode))
+           (full-output-path (plist-get details :fullOutputPath)))
+      (cond
+       ((eq is-error t)
+        (when (not (string-empty-p result-text))
+          (pi-insert-error (format "%s\n" result-text))))
+       (t
+        (when (not (string-empty-p result-text))
+          (insert (format "%s\n" result-text)))))
+      (when (and (numberp exit-code) (not (zerop exit-code)))
+        (pi-insert-error (format "Command exited with code %d\n\n" exit-code)))
+      (when full-output-path
+        (insert "Output truncated. See full output at: ")
+        (widget-create 'file-link
+                       :button-prefix ""
+                       :button-suffix ""
+                       full-output-path)
+        (insert "\n\n"))))
    ((eq is-error t)
     (when (not (string-empty-p result-text))
       (pi-insert-error (format "%s\n" result-text))))
@@ -710,7 +729,7 @@ PRED is called with KEY VALUE."
        (insert "\n")))
     ("bash"
      (when-let ((command (plist-get args :command)))
-       (insert (format "%s \n" command))))
+       (insert (format "%s\n" command))))
     (_
      (insert (format "%S\n" args)))))
 
@@ -1185,6 +1204,31 @@ summarization."
                     (list :customInstructions custom-instructions)
                   '())))
       (pi-send-command "compact" args))))
+
+(defun pi-bash (command)
+  (interactive "sBash command: ")
+  (unless (string-empty-p (string-trim command))
+    (pi-with-chat-buffer
+      (pi-send-command
+       "bash" (list :command command)
+       (pi-on-response-success-callback resp
+         (let* ((data (plist-get resp :data))
+                (exit-code (plist-get data :exitCode))
+                (cancelled (plist-get data :cancelled))
+                (is-error (or (and exit-code
+                                   (not (eq exit-code 'json-null))
+                                   (not (zerop exit-code)))
+                              (and cancelled
+                                   (not (eq cancelled 'json-false))))))
+           (pi-widget-save-excursion
+             (pi-create-section "bash" 'tool pi-root-section
+               (pi-insert-tool-name "bash")
+               (insert (format "%s\n" command))
+               (pi-insert-tool-result
+                "bash"
+                (plist-get data :output)
+                is-error
+                data)))))))))
 
 ;;; Chat mode
 
