@@ -128,6 +128,7 @@ when agent stops."
     ("session" pi-session-stats 0)
     ("name" pi-set-session-name 1)
     ("thinking-level" pi-set-thinking-level 0)
+    ("fork" pi-fork 0)
     ("quit" pi-quit-chat 0)
     ("exit" pi-quit-chat 0))
   "Alist mapping slash command names to command specs.
@@ -1334,6 +1335,39 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
              (pi-create-section "info" 'info pi-root-section
                (insert (format "Session renamed to: %s\n\n" trimmed))))))))))
 
+
+(defun pi-fork ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_fork_messages" '()
+     (pi-on-response-success-callback resp
+       (let* ((messages (plist-get (plist-get resp :data) :messages))
+              (items
+               (mapcar
+                (lambda (m)
+                  (cons (truncate-string-to-width (plist-get m :text) 80 nil nil t) m))
+                messages)))
+         (if (null items)
+             (message "No fork points available.")
+           (let* ((selected (completing-read "Fork at message: " items nil t))
+                  (message (alist-get selected items nil nil #'equal))
+                  (entry-id (plist-get message :entryId)))
+             (pi-send-command
+              "fork" (list :entryId entry-id)
+              (pi-on-response-success-callback resp
+                (let* ((data (plist-get resp :data))
+                       (text (plist-get data :text))
+                       (cancelled (plist-get data :cancelled)))
+                  (if (eq cancelled t)
+                      (pi-widget-save-excursion
+                        (pi-create-section "error" 'error pi-root-section
+                          (pi-insert-error "Fork cancelled.\n\n")))
+                    (pi-refresh-session)
+                    (pi-widget-save-excursion
+                      (pi-create-section "fork" 'fork pi-root-section
+                        (insert text)
+                        (pi-insert-message-tail))))))))))))))
 
 (defun pi-compact (&optional custom-instructions)
   "Compact the current session to reduce context usage.
