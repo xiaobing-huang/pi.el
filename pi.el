@@ -126,6 +126,7 @@ when agent stops."
     ("resume" pi-resume 0)
     ("compact" pi-compact 1)
     ("session" pi-session-stats 0)
+    ("name" pi-set-session-name 1)
     ("thinking-level" pi-set-thinking-level 0)
     ("quit" pi-quit-chat 0)
     ("exit" pi-quit-chat 0))
@@ -1319,6 +1320,20 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                  (pi-insert-error "New session cancelled.\n\n")))
            (pi-widget-save-excursion
              (pi-clear-sections))))))))
+
+(defun pi-set-session-name (name)
+  (interactive "sSession name: ")
+  (let ((trimmed (string-trim name)))
+    (if (string-empty-p trimmed)
+        (message "Session name cannot be empty")
+      (pi-with-chat-buffer
+        (pi-send-command
+         "set_session_name" (list :name trimmed)
+         (pi-on-response-success-callback resp
+           (pi-widget-save-excursion
+             (pi-create-section "info" 'info pi-root-section
+               (insert (format "Session renamed to: %s\n\n" trimmed))))))))))
+
 
 (defun pi-compact (&optional custom-instructions)
   "Compact the current session to reduce context usage.
