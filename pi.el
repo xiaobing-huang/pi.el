@@ -130,6 +130,7 @@ when agent stops."
     ("thinking-level" pi-set-thinking-level 0)
     ("fork" pi-fork 0)
     ("clone" pi-clone 0)
+    ("copy" pi-copy 0)
     ("quit" pi-quit-chat 0)
     ("exit" pi-quit-chat 0))
   "Alist mapping slash command names to command specs.
@@ -1362,6 +1363,20 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
              (pi-create-section "info" 'info pi-root-section
                (insert (format "Session renamed to: %s\n\n" trimmed))))))))))
 
+
+(defun pi-copy ()
+  "Copy the last assistant message to the clipboard."
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_last_assistant_text" '()
+     (pi-on-response-success-callback resp
+       (let ((text (plist-get (plist-get resp :data) :text)))
+         (if text
+             (progn
+               (kill-new text)
+               (message "Copied last assistant message to clipboard."))
+           (message "No assistant message available to copy.")))))))
 
 (defun pi-fork ()
   (interactive)
