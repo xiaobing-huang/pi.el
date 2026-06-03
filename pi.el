@@ -129,6 +129,7 @@ when agent stops."
     ("name" pi-set-session-name 1)
     ("thinking-level" pi-set-thinking-level 0)
     ("fork" pi-fork 0)
+    ("clone" pi-clone 0)
     ("quit" pi-quit-chat 0)
     ("exit" pi-quit-chat 0))
   "Alist mapping slash command names to command specs.
@@ -1320,6 +1321,22 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
            (pi-clear-sections)
            (dolist (message messages)
              (pi-insert-message message))))))))
+
+(defun pi-clone ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "clone" '()
+     (pi-on-response-success-callback resp
+       (let ((cancelled (plist-get (plist-get resp :data) :cancelled)))
+         (if (eq cancelled t)
+             (pi-widget-save-excursion
+               (pi-create-section "error" 'error pi-root-section
+                 (pi-insert-error "Clone cancelled.\n\n")))
+           (pi-refresh-session)
+           (pi-widget-save-excursion
+             (pi-create-section "info" 'info pi-root-section
+               (insert "Session cloned.\n\n")))))))))
 
 (defun pi-new-session ()
   (interactive)
