@@ -1205,13 +1205,17 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                     (insert (format "Thinking level set to: %s\n\n" selected-str)))))))))))))
 
 (cl-defstruct pi-session-choice
-  id message timestamp cwd path)
+  id message timestamp cwd path parent-id)
 
 (defun pi-read-session-choice (filename)
   (with-temp-buffer
     (insert-file-contents filename nil 0 5000)
     (goto-char (point-min))
-    (let ((id nil) (timestamp nil) (cwd nil) (first-text nil)
+    (let ((id nil)
+          (timestamp nil)
+          (cwd nil)
+          (parent-id nil)
+          (first-text nil)
           (lines-read 0))
       (while (and (null first-text) (< lines-read 10) (not (eobp)))
         (let ((line (buffer-substring-no-properties
@@ -1223,7 +1227,12 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                     ('session
                      (setq id (plist-get json :id)
                            timestamp (plist-get json :timestamp)
-                           cwd (plist-get json :cwd)))
+                           cwd (plist-get json :cwd)
+                           parent-id (when-let ((ps (plist-get json :parentSession)))
+                                       (file-name-sans-extension
+                                        (file-name-nondirectory ps))))
+                     (when parent-id
+                       (setq parent-id (car (last (split-string parent-id "_"))))))
                     ('message
                      (let ((first-msg-text (pi-content-text (plist-get json :message))))
                        (when (and (not (string-empty-p first-msg-text))
@@ -1239,6 +1248,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                                (parse-iso8601-time-string timestamp)
                                              (error nil)))
                               :cwd cwd
+                              :parent-id parent-id
                               :message first-text))))
 
 (defun pi-resume ()
@@ -1266,9 +1276,12 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                (formatted-time (if ts
                                                    (format-time-string "%Y-%m-%d %H:%M" ts)
                                                  ""))
-                               (dir (when-let ((cwd (pi-session-choice-cwd s)))
-                                      (file-name-nondirectory cwd))))
-                          (cons (format "%s  (%s)  %s" formatted-time dir (pi-session-choice-message s)) s)))
+                               (short-id (substring (pi-session-choice-id s) -8))
+                               (short-parent (when-let ((pid (pi-session-choice-parent-id s)))
+                                               (substring pid -8))))
+                          (cons (format "%s  %s  %s%s" short-id formatted-time (pi-session-choice-message s)
+                                        (if short-parent (format " (parent: %s)" short-parent) ""))
+                                s)))
                       sessions))
                     (selected (completing-read "Resume session: "
                                                (lambda (string pred action)
