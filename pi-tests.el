@@ -31,5 +31,31 @@
   (let ((err (should-error (pi-parse-slash-command "/model arg"))))
     (should (equal "Slash command \"/model\" does not accept arguments" (error-message-string err)))))
 
+(ert-deftest pi-parse-bang-command ()
+  (should (equal (pi-parse-bang-command "!ls") "ls"))
+  (should (equal (pi-parse-bang-command "!ls -la") "ls -la"))
+  (should (equal (pi-parse-bang-command "  !ls") "ls"))
+  (should (equal (pi-parse-bang-command "! cat!") " cat!"))
+  (should (null (pi-parse-bang-command "!!ls")))
+  (should (null (pi-parse-bang-command "!!")))
+  (should (null (pi-parse-bang-command "!")))
+  (should (null (pi-parse-bang-command "! ")))
+  (should (null (pi-parse-bang-command "!!  ")))
+  (should (null (pi-parse-bang-command "not-a-bang !ls")))
+  (should (null (pi-parse-bang-command ""))))
+
+(ert-deftest pi-parse-double-bang-command ()
+  (should (equal (pi-parse-double-bang-command "!!ls") "ls"))
+  (should (equal (pi-parse-double-bang-command "!!ls -la") "ls -la"))
+  (should (equal (pi-parse-double-bang-command "  !!ls") "ls"))
+  (should (null (pi-parse-double-bang-command "!!")))
+  (should (null (pi-parse-double-bang-command "!")))
+  (should (null (pi-parse-double-bang-command "  !!")))
+  (should (null (pi-parse-double-bang-command "!! ")))
+  (should (null (pi-parse-double-bang-command "! ")))
+  (should (null (pi-parse-double-bang-command "!ls")))
+  (should (null (pi-parse-double-bang-command "not-a-bang !!ls")))
+  (should (null (pi-parse-double-bang-command ""))))
+
 ;;; pi-tests.el ends here
 

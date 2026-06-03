@@ -961,8 +961,16 @@ PRED is called with KEY VALUE."
           (cons cmd args))))))
 
 (defun pi-parse-bang-command (prompt)
-  (when (string-match "^[ \t]*!\\(.+\\)$" prompt)
-    (match-string-no-properties 1 prompt)))
+  (pi-parse-bang-command-with-regex prompt "^[ \t]*!\\([^!].*\\)$"))
+
+(defun pi-parse-double-bang-command (prompt)
+  (pi-parse-bang-command-with-regex prompt "^[ \t]*!!\\(.+\\)$"))
+
+(defun pi-parse-bang-command-with-regex (prompt regex)
+  (when (string-match regex prompt)
+    (let ((result (match-string-no-properties 1 prompt)))
+      (when (not (string-match-p "^[ \t]+$" result))
+        result))))
 
 (defun pi-clear-prompt (prompt)
   (widget-value-set pi-prompt-widget "")
@@ -976,7 +984,8 @@ PRED is called with KEY VALUE."
   (if (or (null prompt) (string-empty-p prompt))
       (message "No prompt to send")
     (let ((slash (pi-parse-slash-command prompt))
-          (bang (pi-parse-bang-command prompt)))
+          (bang (pi-parse-bang-command prompt))
+          (double-bang (pi-parse-double-bang-command prompt)))
       (cond
        (slash
         (let ((cmd (car slash))
@@ -984,6 +993,9 @@ PRED is called with KEY VALUE."
           (if (null args)
               (call-interactively cmd)
             (apply cmd (list args))))
+        (pi-clear-prompt prompt))
+       (double-bang
+        (pi-bash double-bang t)
         (pi-clear-prompt prompt))
        (bang
         (pi-bash bang)
@@ -1302,18 +1314,21 @@ summarization."
                   '())))
       (pi-send-command "compact" args))))
 
-(defun pi-bash (command)
+(defun pi-bash (command &optional exclude-from-context)
   (interactive "sBash command: ")
   (unless (string-empty-p (string-trim command))
     (pi-with-chat-buffer
       (setq pi-bash-in-progress t)
-      (let ((section (pi-new-section "bash" 'tool pi-root-section)))
+      (let ((args (list :command command))
+            (section (pi-new-section "bash" 'tool pi-root-section)))
+        (when exclude-from-context
+          (setq args (nconc args (list :excludeFromContext t))))
         (pi-widget-save-excursion
           (pi-insert-section section
             (pi-insert-tool-name "bash")
             (insert (format "%s\n" command))))
         (pi-send-command
-         "bash" (list :command command)
+         "bash" args
          (lambda (resp)
            (pi-on-response-success resp
              (let* ((data (plist-get resp :data))
