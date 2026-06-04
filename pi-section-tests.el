@@ -464,7 +464,7 @@
       (pi-section-set-hidden build t)
       (goto-char (pi-section-beginning build))
       (forward-line 1)
-      (should (get-text-property (point) 'invisible)))))
+      (should (invisible-p (point))))))
 
 (ert-deftest pi-section-set-hidden-unhide ()
   (pi-section-tests-with-demo-buffer
@@ -474,7 +474,7 @@
       (pi-section-set-hidden build nil)
       (goto-char (pi-section-beginning build))
       (forward-line 1)
-      (should (not (get-text-property (point) 'invisible))))))
+      (should (not (invisible-p (point)))))))
 
 (ert-deftest pi-toggle-section-toggles-hidden ()
   (pi-section-tests-with-demo-buffer

@@ -235,6 +235,14 @@ Increase or decrease this value to adjust spacing between sections."
         (goto-char (pi-section-beginning (or prev section)))
         (goto-char (pi-section-beginning (or prev section))))))))
 
+(defun pi-section-isearch-open (ov)
+  (when-let ((section
+              (get-text-property (overlay-start ov) 'pi-section))
+             (parent (pi-section-parent section)))
+    (while (and parent (not (eq parent pi-root-section)))
+      (setq section (pi-section-parent section))
+      (setq parent (pi-section-parent section)))
+    (pi-section-set-hidden section nil)))
 
 (defun pi-section-set-hidden (section hidden)
   "Hide SECTION if HIDDEN is not nil, show it otherwise."
@@ -243,13 +251,24 @@ Increase or decrease this value to adjust spacing between sections."
         (beg (save-excursion
                (goto-char (pi-section-beginning section))
                (forward-line)
-               (point)))
+               (point-marker)))
         (end (pi-section-end section)))
-    (if (< beg end)
-        (put-text-property beg end 'invisible hidden)))
-  (if (not hidden)
-      (dolist (c (pi-section-children section))
-        (pi-section-set-hidden c (pi-section-hidden c)))))
+
+    ;; Remove any existing hide overlays.
+    (remove-overlays beg end 'pi-section-hidden t)
+
+    (when (and hidden (< beg end))
+      (let ((ov (make-overlay beg end)))
+        (overlay-put ov 'pi-section-hidden t)
+        (overlay-put ov 'evaporate t)
+        (overlay-put ov 'invisible t)
+        (overlay-put ov 'isearch-open-invisible
+                     #'pi-section-isearch-open))))
+
+  (unless hidden
+    (dolist (child (pi-section-children section))
+      (pi-section-set-hidden child
+                             (pi-section-hidden child)))))
 
 (defun pi-toggle-section ()
   "Toggle hidden status of current section."
