@@ -711,32 +711,33 @@ PRED is called with KEY VALUE."
 
 
 (defun pi-handle-message-update (event)
-  (let* ((message (plist-get event :message))
-         (role (pi-message-role message))
-         (thinking-text (pi-content-thinking message))
-         (text (pi-content-text message)))
+  (let* ((assistant-message-event (plist-get event :assistantMessageEvent))
+         (event-type (plist-get assistant-message-event :type))
+         (delta (plist-get assistant-message-event :delta))
+         (message (plist-get event :message))
+         (role (pi-message-role message)))
     (when (member role '("assistant" "user"))
-      (unless (string-empty-p thinking-text)
-        (pi-widget-save-excursion
-          (if pi-thinking-section
-              (pi-replace-section pi-thinking-section
-                (pi-insert-role-prefix role)
-                (pi-insert-thinking thinking-text))
-            (setq pi-thinking-section (pi-new-section "thinking" 'thinking pi-root-section))
-            (pi-insert-section pi-thinking-section
-              (pi-insert-role-prefix role)
-              (pi-insert-thinking thinking-text)))))
-
-      (unless (string-empty-p text)
-        (pi-widget-save-excursion
-          (if pi-text-section
-              (pi-replace-section pi-text-section
-                (pi-insert-role-prefix role)
-                (insert text))
-            (setq pi-text-section (pi-new-section "text" 'text pi-root-section))
-            (pi-insert-section pi-text-section
-              (pi-insert-role-prefix role)
-              (insert text))))))))
+      (pcase event-type
+        ("thinking_delta"
+         (unless (string-empty-p delta)
+           (pi-widget-save-excursion
+             (if pi-thinking-section
+                 (pi-append-section pi-thinking-section
+                   (pi-insert-thinking delta))
+               (setq pi-thinking-section (pi-new-section "thinking" 'thinking pi-root-section))
+               (pi-insert-section pi-thinking-section
+                 (pi-insert-role-prefix role)
+                 (pi-insert-thinking delta))))))
+        ("text_delta"
+         (unless (string-empty-p delta)
+           (pi-widget-save-excursion
+             (if pi-text-section
+                 (pi-append-section pi-text-section
+                   (insert delta))
+               (setq pi-text-section (pi-new-section "text" 'text pi-root-section))
+               (pi-insert-section pi-text-section
+                 (pi-insert-role-prefix role)
+                 (insert delta))))))))))
 
 (defun pi-handle-message-end (event)
   (let* ((message (plist-get event :message))
