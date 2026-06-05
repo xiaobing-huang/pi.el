@@ -94,6 +94,11 @@
   :type 'boolean
   :group 'pi)
 
+(defcustom pi-log-rpc-file "/tmp/pi.el.log"
+  "File to write RPC JSON log entries to."
+  :type 'file
+  :group 'pi)
+
 (defcustom pi-file-completion-backend 'project
   "Completion backend for @-prefixed file paths in prompts.
 `project' uses `project-files' to list files in the current project.
@@ -125,7 +130,7 @@ when agent stops."
                  (const :tag "Steer" steer))
   :group 'pi)
 
-(defvar pi-slash-commands
+(defcustom pi-slash-commands
   '(("model" pi-select-model 0)
     ("new" pi-new-session 0)
     ("resume" pi-resume 0)
@@ -144,9 +149,11 @@ when agent stops."
 Each entry is (NAME COMMAND MAX-ARGS) where NAME is the command
 string without the leading slash, COMMAND is a command symbol,
 and MAX-ARGS is 0 or 1 indicating the number of optional string
-arguments the command accepts.")
+arguments the command accepts."
+  :type '(repeat (list string symbol integer))
+  :group 'pi)
 
-(defvar pi-insert-tool-args-functions
+(defcustom pi-insert-tool-args-functions
   '(("read" . pi-insert-read-args)
     ("write" . pi-insert-write-args)
     ("edit" . pi-insert-edit-args)
@@ -157,9 +164,11 @@ arguments the command accepts.")
   "Alist mapping tool names to inserter functions.
 
 Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
-with ARGS plist to insert formatted tool call arguments.")
+with ARGS plist to insert formatted tool call arguments."
+  :type '(alist :key-type string :value-type function)
+  :group 'pi)
 
-(defvar pi-insert-tool-result-functions
+(defcustom pi-insert-tool-result-functions
   '(("bash" . pi-insert-bash-result)
     ("read" . pi-insert-read-result)
     ("write" . pi-insert-write-result)
@@ -170,10 +179,9 @@ with ARGS plist to insert formatted tool call arguments.")
   "Alist mapping tool names to result inserter functions.
 
 Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
-with (RESULT-TEXT DETAILS ARGS) to insert the tool execution result.")
-
-(defvar pi-log-rpc-file "/tmp/pi.el.log"
-  "File to write RPC JSON log entries to.")
+with (RESULT-TEXT DETAILS ARGS) to insert the tool execution result."
+  :type '(alist :key-type string :value-type function)
+  :group 'pi)
 
 (defvar-local pi-project-file-cache nil)
 

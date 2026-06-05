@@ -45,3 +45,32 @@ sandbox:
 	        --eval "(package-initialize)" \
 	        --eval "(use-package pi :ensure t :vc (:url \"git@github.com:ananthakumaran/pi.el.git\" :rev :newest) :commands (pi-chat))" \
                 --eval "(when (eq system-type 'darwin) (setq mac-option-key-is-meta nil mac-command-key-is-meta t mac-command-modifier 'meta mac-option-modifier 'none))"
+
+
+define ESCRIPT
+(with-temp-buffer
+  (require 'pp)
+  (require 'subr-x)
+  (insert-file-contents "pi.el")
+  (while
+      (ignore-errors
+        (let ((sexp (read (current-buffer))))
+          (when sexp
+            (when (eq (car sexp) 'defcustom)
+              (unless (cadr (cddr sexp))
+                (princ (format "Documentation missing for defcustom %S\n" (cadr sexp)))
+                (kill-emacs 1))
+              (let* ((name (cadr sexp))
+                     (default-raw (pp-to-string (eval (car (cddr sexp)) t)))
+                     (default-str (string-trim default-raw))
+                     (doc (replace-regexp-in-string "`\\([^ ]*\\)'" "`\\1`" (cadr (cddr sexp)))))
+                (if (string-match-p "\n" default-str)
+                    (princ (format "#### %s\n\n<details><summary>Default Value</summary>\n\n```elisp\n%s\n```\n\n</details>\n\n%s\n\n" name default-str doc))
+                  (princ (format "#### %s `%s`\n\n%s\n\n" name default-str doc)))))
+            t)))))
+endef
+export ESCRIPT
+
+
+readme:
+	ruby -e 'puts IO.read("README.md").split("### Custom Variables")[0] + "### Custom Variables\n\n" + `emacs --batch --eval "$$ESCRIPT"`' | sponge README.md
