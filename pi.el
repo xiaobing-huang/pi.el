@@ -635,14 +635,14 @@ PRED is called with KEY VALUE."
   (cond
    ((string= tool-name "bash")
     (let* ((exit-code (plist-get details :exitCode))
+           (cancelled (plist-get details :cancelled))
            (full-output-path (plist-get details :fullOutputPath)))
       (cond
-       ((eq is-error t)
-        (when (not (string-empty-p result-text))
-          (pi-insert-error (format "%s" result-text))))
        (t
         (when (not (string-empty-p result-text))
           (insert (format "%s" result-text)))))
+      (when (eq cancelled t)
+        (pi-insert-error "Cancelled."))
       (when (and (numberp exit-code) (not (zerop exit-code)))
         (pi-insert-error (format "Command exited with code %d" exit-code)))
       (when full-output-path
@@ -720,9 +720,18 @@ PRED is called with KEY VALUE."
          (pi-widget-save-excursion
            (pi-replace-section (pi-tool-call-result-section entry)
              (pi-insert-tool-result tool-name result-text is-error details (pi-tool-call-args entry))))
-         (remhash tool-call-id pi-tool-calls))))))
+         (remhash tool-call-id pi-tool-calls))))
 
-
+    ("bashExecution"
+     (let* ((command (plist-get message :command))
+            (output (plist-get message :output)))
+       (pi-widget-save-excursion
+         (let ((call-section (pi-new-section 'tool-call pi-root-section :padding "\n")))
+           (pi-insert-section call-section
+             (pi-insert-tool-name "bash")
+             (insert (format "%s" command)))
+           (pi-create-section 'tool-result call-section
+             (pi-insert-tool-result "bash" output nil message))))))))
 
 (defun pi-handle-message-update (event)
   (let* ((assistant-message-event (plist-get event :assistantMessageEvent))
@@ -1496,20 +1505,10 @@ summarization."
          (lambda (resp)
            (pi-on-response-success resp
              (let* ((data (plist-get resp :data))
-                    (exit-code (plist-get data :exitCode))
-                    (cancelled (plist-get data :cancelled))
-                    (is-error (or (and exit-code
-                                       (not (eq exit-code 'json-null))
-                                       (not (zerop exit-code)))
-                                  (and cancelled
-                                       (not (eq cancelled 'json-false))))))
+                    (output (plist-get data :output)))
                (pi-widget-save-excursion
                  (pi-create-section 'tool-result call-section
-                   (pi-insert-tool-result
-                    "bash"
-                    (plist-get data :output)
-                    is-error
-                    data)))))
+                   (pi-insert-tool-result "bash" output nil data)))))
            (setq pi-bash-in-progress nil)))))))
 
 ;;; Chat mode

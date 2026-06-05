@@ -54,6 +54,7 @@ Increase or decrease this value to adjust spacing between sections."
            (debug (symbolp body)))
   (let ((s (make-symbol "*section*")))
     `(let* ((,s ,section))
+       (goto-char (pi-section-end (pi-section-parent ,s)))
        (setf (pi-section-beginning ,s) (point-marker))
        ,@body
        (insert (pi-section-padding ,s))
