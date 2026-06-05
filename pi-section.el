@@ -18,7 +18,7 @@ Increase or decrease this value to adjust spacing between sections."
 ;;
 
 (cl-defstruct pi-section
-  parent children beginning end type title hidden info)
+  parent children beginning end type hidden info)
 
 (defun pi-set-section-info (info &optional section)
   (setf (pi-section-info section) info))
@@ -28,9 +28,8 @@ Increase or decrease this value to adjust spacing between sections."
     (set-marker-insertion-type m t)
     m))
 
-(defun pi-new-section (title type parent)
+(defun pi-new-section (type parent)
   (let* ((s (make-pi-section :parent parent
-                             :title title
                              :type type
                              :hidden pi-section-hidden-default)))
     (when parent
@@ -42,7 +41,7 @@ Increase or decrease this value to adjust spacing between sections."
 (defun pi-create-root-section ()
   (when pi-root-section
     (error "Root section already exists."))
-  (let ((root (pi-new-section "Root" 'root nil)))
+  (let ((root (pi-new-section 'root nil)))
     (setf (pi-section-beginning root) (point-min))
     (setf (pi-section-end root) (point-min-marker))
     (setq pi-root-section root)
@@ -61,11 +60,11 @@ Increase or decrease this value to adjust spacing between sections."
        (pi-propertize-section ,s)
        ,s)))
 
-(defmacro pi-create-section (title type parent &rest body)
-  (declare (indent 3)
+(defmacro pi-create-section (type parent &rest body)
+  (declare (indent 2)
            (debug (symbolp body)))
   (let ((s (make-symbol "*section*")))
-    `(let* ((,s (pi-new-section ,title ,type ,parent)))
+    `(let* ((,s (pi-new-section ,type ,parent)))
        (pi-insert-section ,s
          ,@body)
        ,s)))
@@ -111,12 +110,12 @@ Increase or decrease this value to adjust spacing between sections."
             (delq section (pi-section-children parent)))
       (pi-update-section-end parent beg))))
 
-(defmacro pi-create-or-replace-section (section title type parent &rest body)
-  (declare (indent 4)
+(defmacro pi-create-or-replace-section (section type parent &rest body)
+  (declare (indent 3)
            (debug (symbolp body)))
   `(if ,section
        (pi-replace-section ,section ,@body)
-     (pi-create-section ,title ,type ,parent ,@body)))
+     (pi-create-section ,type ,parent ,@body)))
 
 (defun pi-update-section-end (section end)
   (when section
@@ -137,8 +136,8 @@ Increase or decrease this value to adjust spacing between sections."
   (if (null path)
       top
     (let ((secs (pi-section-children top)))
-      (while (and secs (not (equal (car path)
-                                   (pi-section-title (car secs)))))
+      (while (and secs (not (eq (car path)
+                                (pi-section-type (car secs)))))
         (setq secs (cdr secs)))
       (and (car secs)
            (pi-find-section (cdr path) (car secs))))))
@@ -148,7 +147,7 @@ Increase or decrease this value to adjust spacing between sections."
   (if (not (pi-section-parent section))
       '()
     (append (pi-section-path (pi-section-parent section))
-            (list (pi-section-title section)))))
+            (list (pi-section-type section)))))
 
 (defun pi-current-section ()
   "Return the pi section at point."
@@ -298,15 +297,15 @@ Increase or decrease this value to adjust spacing between sections."
       (erase-buffer)
       (let* ((pi-section-padding "\n")
              (root (pi-create-root-section))
-             (build (pi-new-section "Build" 'build root))
-             (compile (pi-new-section "Compile" 'compile build))
-             (tests (pi-new-section "Tests" 'test build))
-             (unit-tests (pi-new-section "Unit Tests" 'test tests))
-             (integration-tests (pi-new-section "Integration Tests" 'integration-tests tests))
-             (logs (pi-new-section "Logs" 'logs root))
-             (server-log (pi-new-section "Server" 'server-log logs))
-             (worker-log (pi-new-section "Worker" 'worker-log logs))
-             (deploy (pi-new-section "Deploy" 'deploy root)))
+             (build (pi-new-section 'build root))
+             (compile (pi-new-section 'compile build))
+             (tests (pi-new-section 'test build))
+             (unit-tests (pi-new-section 'test tests))
+             (integration-tests (pi-new-section 'integration-tests tests))
+             (logs (pi-new-section 'logs root))
+             (server-log (pi-new-section 'server-log logs))
+             (worker-log (pi-new-section 'worker-log logs))
+             (deploy (pi-new-section 'deploy root)))
         (pi-insert-section build
           (insert "[-] Build\n"))
         (pi-insert-section compile
@@ -361,12 +360,10 @@ Does not recurse into the parent."
   (interactive (list (pi-current-section) 0))
   (let ((prefix (make-string (* indent 2) ?\s))
         (parent (pi-section-parent section)))
-    (princ (format "%sSection: %S (type: %s)\n" prefix
-                   (pi-section-title section)
+    (princ (format "%sSection: %s\n" prefix
                    (pi-section-type section)))
     (when parent
-      (princ (format "%s  parent: %S (type: %s)\n" prefix
-                     (pi-section-title parent)
+      (princ (format "%s  parent: %s\n" prefix
                      (pi-section-type parent))))
     (princ (format "%s  beginning: %s, end: %s\n" prefix
                    (pi-section-beginning section)

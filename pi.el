@@ -222,7 +222,7 @@ PRED is called with KEY VALUE."
            (progn ,@body)
          (when-let (err (plist-get ,resp-sym :error))
            (pi-widget-save-excursion
-             (pi-create-section "error" 'error pi-root-section
+             (pi-create-section 'error pi-root-section
                (pi-insert-error (format "%s" err))))
            nil)))))
 
@@ -237,7 +237,7 @@ PRED is called with KEY VALUE."
   `(let ((cancelled (plist-get (plist-get ,resp :data) :cancelled)))
      (if (eq cancelled t)
          (pi-widget-save-excursion
-           (pi-create-section "error" 'error pi-root-section
+           (pi-create-section 'error pi-root-section
              (pi-insert-error (format "%s cancelled." ,operation))))
        ,@body)))
 
@@ -673,7 +673,7 @@ PRED is called with KEY VALUE."
      (let ((text (pi-content-text message)))
        (unless (string-empty-p text)
          (pi-widget-save-excursion
-           (pi-create-section "user" 'user pi-root-section
+           (pi-create-section 'user pi-root-section
              (pi-insert-role-prefix "user")
              (insert text))))))
 
@@ -683,12 +683,12 @@ PRED is called with KEY VALUE."
            (tool-calls (pi-content-tool-calls message)))
        (unless (string-empty-p thinking-text)
          (pi-widget-save-excursion
-           (pi-create-section "thinking" 'thinking pi-root-section
+           (pi-create-section 'thinking pi-root-section
              (pi-insert-role-prefix "assistant")
              (pi-insert-thinking thinking-text))))
        (unless (string-empty-p text)
          (pi-widget-save-excursion
-           (pi-create-section "text" 'text pi-root-section
+           (pi-create-section 'text pi-root-section
              (pi-insert-role-prefix "assistant")
              (insert (pi-render-markdown text)))))
        (dolist (tool-call tool-calls)
@@ -696,11 +696,11 @@ PRED is called with KEY VALUE."
                (tool-name (plist-get tool-call :name))
                (args (plist-get tool-call :arguments)))
            (pi-widget-save-excursion
-             (let ((call-section (pi-new-section tool-name 'tool pi-root-section)))
+             (let ((call-section (pi-new-section 'tool pi-root-section)))
                (pi-insert-section call-section
                  (pi-insert-tool-name tool-name)
                  (pi-format-tool-args tool-name args))
-               (let ((result-section (pi-new-section "result" 'tool-execution call-section)))
+               (let ((result-section (pi-new-section 'tool-execution call-section)))
                  (pi-insert-section result-section)
                  (puthash tool-call-id
                           (make-pi-tool-call
@@ -738,7 +738,7 @@ PRED is called with KEY VALUE."
              (if pi-thinking-section
                  (pi-append-section pi-thinking-section
                    (pi-insert-thinking delta))
-               (setq pi-thinking-section (pi-new-section "thinking" 'thinking pi-root-section))
+               (setq pi-thinking-section (pi-new-section 'thinking pi-root-section))
                (pi-insert-section pi-thinking-section
                  (pi-insert-role-prefix role)
                  (pi-insert-thinking delta))))))
@@ -748,7 +748,7 @@ PRED is called with KEY VALUE."
              (if pi-text-section
                  (pi-append-section pi-text-section
                    (insert delta))
-               (setq pi-text-section (pi-new-section "text" 'text pi-root-section))
+               (setq pi-text-section (pi-new-section 'text pi-root-section))
                (pi-insert-section pi-text-section
                  (pi-insert-role-prefix role)
                  (insert delta))))))
@@ -758,11 +758,11 @@ PRED is called with KEY VALUE."
                 (tool-name (plist-get tool-call :name))
                 (args (plist-get tool-call :arguments)))
            (pi-widget-save-excursion
-             (let ((call-section (pi-new-section tool-name 'tool pi-root-section)))
+             (let ((call-section (pi-new-section 'tool pi-root-section)))
                (pi-insert-section call-section
                  (pi-insert-tool-name tool-name)
                  (pi-format-tool-args tool-name args))
-               (let ((result-section (pi-new-section "result" 'tool-execution call-section)))
+               (let ((result-section (pi-new-section 'tool-execution call-section)))
                  (pi-insert-section result-section)
                  (puthash tool-call-id
                           (make-pi-tool-call
@@ -782,13 +782,13 @@ PRED is called with KEY VALUE."
     (when (member role '("assistant" "user"))
       (unless (string-empty-p thinking-text)
         (pi-widget-save-excursion
-          (pi-create-or-replace-section pi-thinking-section "thinking" 'thinking pi-root-section
+          (pi-create-or-replace-section pi-thinking-section 'thinking pi-root-section
             (pi-insert-role-prefix role)
             (pi-insert-thinking thinking-text))))
 
       (unless (string-empty-p text)
         (pi-widget-save-excursion
-          (pi-create-or-replace-section pi-text-section "text" 'text pi-root-section
+          (pi-create-or-replace-section pi-text-section 'text pi-root-section
             (pi-insert-role-prefix role)
             (insert text)))))
     (when (and (equal role "assistant") (not (string-empty-p text)))
@@ -873,7 +873,7 @@ PRED is called with KEY VALUE."
         (error-message (plist-get event :errorMessage)))
     (when (and error-message (not (string-empty-p error-message)))
       (pi-widget-save-excursion
-        (pi-create-section "error" 'error pi-root-section
+        (pi-create-section 'error pi-root-section
           (pi-insert-error (format "Error: %s\n\n" error-message))
           (insert
            (propertize (format "Retrying %d/%d (waiting %ds)…" attempt max-attempts (/ delay-ms 1000))
@@ -885,7 +885,7 @@ PRED is called with KEY VALUE."
         (final-error (plist-get event :finalError)))
     (unless (pi-response-success-p event)
       (pi-widget-save-excursion
-        (pi-create-section "error" 'error pi-root-section
+        (pi-create-section 'error pi-root-section
           (pi-insert-error
            (format "Error: Retry failed after %d attempts: %s" attempt final-error)))))))
 
@@ -896,7 +896,7 @@ PRED is called with KEY VALUE."
                           (consp follow-up))))
     (when has-content
       (pi-widget-save-excursion
-        (pi-create-section "queue" 'queue pi-root-section
+        (pi-create-section 'queue pi-root-section
           (insert (propertize "queue" 'face 'bold))
           (dolist (item steering)
             (insert (propertize (format "\n Steering: %s" item) 'face 'pi-thinking-face)))
@@ -909,7 +909,7 @@ PRED is called with KEY VALUE."
     (cond
      (error-message
       (pi-widget-save-excursion
-        (pi-create-section "error" 'error pi-root-section
+        (pi-create-section 'error pi-root-section
           (pi-insert-error error-message))))
      (result
       (let* ((summary (plist-get result :summary))
@@ -917,7 +917,7 @@ PRED is called with KEY VALUE."
              (header (format "**Compacted from %s tokens**"
                              (pi-format-number-short tokens-before))))
         (pi-widget-save-excursion
-          (pi-create-section "compact" 'compact pi-root-section
+          (pi-create-section 'compact pi-root-section
             (pi-insert-role-prefix "assistant")
             (insert (pi-render-markdown (concat header summary))))))))))
 
@@ -1109,7 +1109,7 @@ If `pi-prompt-streaming-behavior' is `followUp', use `steer' and vice versa."
      '()
      (pi-on-response-success-callback resp
        (pi-widget-save-excursion
-         (pi-create-section "error" 'error pi-root-section
+         (pi-create-section 'error pi-root-section
            (pi-insert-error "Aborted."))))))
   (keyboard-quit))
 
@@ -1130,7 +1130,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
               (tokens (plist-get data :tokens))
               (cost (plist-get data :cost)))
          (pi-widget-save-excursion
-           (pi-create-section "session" 'session pi-root-section
+           (pi-create-section 'session pi-root-section
              (insert
               (propertize "Session Info\n" 'face 'bold))
 
@@ -1193,7 +1193,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
               (pi-on-response-success-callback resp
                 (pi-update-header-line)
                 (pi-widget-save-excursion
-                  (pi-create-section "model" 'model pi-root-section
+                  (pi-create-section 'model pi-root-section
                     (insert (format "Switched to model: (%s) %s" provider model-id)))))))))))))
 
 (defvar pi-thinking-level-descriptions
@@ -1254,7 +1254,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
               (pi-on-response-success-callback resp
                 (pi-update-header-line)
                 (pi-widget-save-excursion
-                  (pi-create-section "thinking" 'thinking pi-root-section
+                  (pi-create-section 'thinking pi-root-section
                     (insert (format "Thinking level set to: %s" selected-str)))))))))))))
 
 (cl-defstruct pi-session-choice
@@ -1378,7 +1378,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
        (pi-unless-cancelled resp "Clone"
          (pi-refresh-session)
          (pi-widget-save-excursion
-           (pi-create-section "info" 'info pi-root-section
+           (pi-create-section 'info pi-root-section
              (insert "Session cloned."))))))))
 
 (defun pi-new-session ()
@@ -1401,7 +1401,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
          "set_session_name" (list :name trimmed)
          (pi-on-response-success-callback resp
            (pi-widget-save-excursion
-             (pi-create-section "info" 'info pi-root-section
+             (pi-create-section 'info pi-root-section
                (insert (format "Session renamed to: %s" trimmed))))))))))
 
 
@@ -1419,7 +1419,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
        (pi-on-response-success-callback resp
          (let ((path (plist-get (plist-get resp :data) :path)))
            (pi-widget-save-excursion
-             (pi-create-section "export" 'info pi-root-section
+             (pi-create-section 'info pi-root-section
                (insert "Session exported to: ")
                (pi-insert-file-link path)))))))))
 
@@ -1461,7 +1461,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                   (let ((text (plist-get (plist-get resp :data) :text)))
                     (pi-refresh-session)
                     (pi-widget-save-excursion
-                      (pi-create-section "fork" 'fork pi-root-section
+                      (pi-create-section 'fork pi-root-section
                         (insert text))))))))))))))
 
 (defun pi-compact (&optional custom-instructions)
@@ -1484,7 +1484,7 @@ summarization."
     (pi-with-chat-buffer
       (setq pi-bash-in-progress t)
       (let ((args (list :command command))
-            (section (pi-new-section "bash" 'tool pi-root-section)))
+            (section (pi-new-section 'tool pi-root-section)))
         (when exclude-from-context
           (setq args (nconc args (list :excludeFromContext t))))
         (pi-widget-save-excursion
