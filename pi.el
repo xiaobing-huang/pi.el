@@ -6,7 +6,7 @@
 ;; URL: http://github.com/ananthakumaran/pi.el
 ;; Version: 0.1
 ;; Keywords: pi agent
-;; Package-Requires: ((emacs "28.1") (compat "31.0") (markdown-mode "2.8") (timeout "2.1.7") (pcre2el "1.12"))
+;; Package-Requires: ((emacs "28.1") (compat "31.0") (markdown-mode "2.8") (timeout "2.1.7") (pcre2el "1.12") (spinner "1.7"))
 
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@
 (require 'subr-x)
 (require 'parse-time)
 (require 'timeout)
+(require 'spinner)
 (require 'pcre2el)
 
 (defgroup pi nil
@@ -339,6 +340,7 @@ PRED is called with KEY VALUE."
 (pi-def-permanent-buffer-local pi-header-line-state nil)
 (pi-def-permanent-buffer-local pi-tool-calls nil)
 (pi-def-permanent-buffer-local pi-agent-state nil)
+(pi-def-permanent-buffer-local pi-spinner nil)
 (pi-def-permanent-buffer-local pi-bash-in-progress nil)
 (pi-def-permanent-buffer-local pi-retry-in-progress nil)
 
@@ -1114,11 +1116,13 @@ PRED is called with KEY VALUE."
          (ctx-window-usage (plist-get context-usage :contextWindow))
          (ctx-str (pi-format-number-short ctx-window-usage))
          (usage-str (pi-format-number-short ctx-tokens)))
-    (let* ((state-str (pi-format-state))
-           (left (format "%s/%s (%s) • %s"
+    (let* ((spinner-str (and pi-agent-state pi-spinner (spinner-print pi-spinner)))
+           (state-str (pi-format-state))
+           (suffix (if spinner-str (concat " " spinner-str) ""))
+           (left (format "%s/%s (%s) • %s%s"
                          usage-str ctx-str
                          (if auto-compact "auto" "manual")
-                         state-str))
+                         state-str suffix))
            (right (format "(%s) %s • %s"
                           (or provider "?")
                           (or model-id "?")
@@ -1162,6 +1166,13 @@ PRED is called with KEY VALUE."
     (compaction_end (setq pi-agent-state nil))
     (auto_retry_start (setq pi-agent-state 'retrying))
     (auto_retry_end (setq pi-agent-state nil)))
+  (if pi-agent-state
+      (unless pi-spinner
+        (setq pi-spinner (spinner-create 'progress-bar))
+        (spinner-start pi-spinner))
+    (when pi-spinner
+      (spinner-stop pi-spinner)
+      (setq pi-spinner nil)))
   (pi-update-header-line))
 
 (defun pi-cleanup-chat-buffer ()
