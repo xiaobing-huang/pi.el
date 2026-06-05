@@ -75,5 +75,15 @@
   (should (equal (pi-extract-truncation-notice "")
                  '("" . nil))))
 
+(ert-deftest pi--extract-truncation-notice-showing-lines-no-size ()
+  (should (equal (pi-extract-truncation-notice
+                  "line1\nline2\n[Showing lines 1-1648 of 6218. Use offset=1649 to continue.]")
+                 '("line1\nline2" . "[Showing lines 1-1648 of 6218. Use offset=1649 to continue.]"))))
+
+(ert-deftest pi--extract-truncation-notice-bash-fallback ()
+  (should (equal (pi-extract-truncation-notice
+                  "line1\nline2\n[Line 1 is 100KB, exceeds 50.0KB limit. Use bash: sed -n '1p' main.go | head -c 51200]")
+                 '("line1\nline2" . "[Line 1 is 100KB, exceeds 50.0KB limit. Use bash: sed -n '1p' main.go | head -c 51200]"))))
+
 ;;; pi-tests.el ends here
 

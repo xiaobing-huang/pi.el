@@ -653,7 +653,7 @@ PRED is called with KEY VALUE."
   (insert (propertize (format "%s " tool-name) 'face 'pi-tool-name-face)))
 
 (defun pi-extract-truncation-notice (result-text)
-  (if (string-match "\n\\(\\[[^]]* Use offset=[^]]* to [Cc]ontinue\\.\\]\\)$" result-text)
+  (if (string-match "\n\\(\\[[^]]* Use \\(?:offset=[^]]* to [Cc]ontinue\\|bash: [^]]*\\)\\.?\\]\\)$" result-text)
       (cons (replace-match "" nil nil result-text)
             (match-string 1 result-text))
     (cons result-text nil)))
