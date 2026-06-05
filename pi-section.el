@@ -256,6 +256,15 @@ Increase or decrease this value to adjust spacing between sections."
         (goto-char (pi-section-beginning (or prev section)))
         (goto-char (pi-section-beginning (or prev section))))))))
 
+(defun pi-goto-last-section ()
+  "Go to the last child section of pi-root-section."
+  (interactive)
+  (if (and pi-root-section
+           (pi-section-children pi-root-section))
+      (goto-char (pi-section-beginning
+                  (car (last (pi-section-children pi-root-section)))))
+    (message "No sections")))
+
 (defun pi-section-isearch-open (ov)
   (when-let ((section
               (get-text-property (overlay-start ov) 'pi-section))

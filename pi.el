@@ -1642,6 +1642,8 @@ summarization."
   "M-n" #'pi-goto-next-section
   "p" #'pi-goto-previous-section
   "M-p" #'pi-goto-previous-section
+  "M-g l" #'pi-goto-last-section
+  "l" #'pi-goto-last-section
   "i" #'pi-focus-prompt
   "q" #'pi-quit-chat)
 
@@ -1652,6 +1654,7 @@ summarization."
     (keymap-set map "M-n" #'pi-next-prompt)
     (keymap-set map "C-r" #'pi-search-prompt)
     (keymap-set map "M-RET" #'pi-send-prompt-alternate)
+    (keymap-set map "M-g l" #'pi-goto-last-section)
     map))
 
 (define-derived-mode pi-chat-mode nil "pi-chat"
