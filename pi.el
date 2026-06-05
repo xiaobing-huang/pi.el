@@ -141,6 +141,26 @@ string without the leading slash, COMMAND is a command symbol,
 and MAX-ARGS is 0 or 1 indicating the number of optional string
 arguments the command accepts.")
 
+(defvar pi-insert-tool-args-functions
+  '(("read" . pi-insert-read-args)
+    ("write" . pi-insert-write-args)
+    ("edit" . pi-insert-edit-args)
+    ("bash" . pi-insert-bash-args))
+  "Alist mapping tool names to inserter functions.
+
+Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
+with ARGS plist to insert formatted tool call arguments.")
+
+(defvar pi-insert-tool-result-functions
+  '(("bash" . pi-insert-bash-result)
+    ("read" . pi-insert-read-result)
+    ("write" . pi-insert-write-result)
+    ("edit" . pi-insert-edit-result))
+  "Alist mapping tool names to result inserter functions.
+
+Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
+with (RESULT-TEXT DETAILS ARGS) to insert the tool execution result.")
+
 (defvar pi-log-rpc-file "/tmp/pi.el.log"
   "File to write RPC JSON log entries to.")
 
@@ -631,42 +651,6 @@ PRED is called with KEY VALUE."
             (match-string 1 result-text))
     (cons result-text nil)))
 
-(defun pi-insert-tool-result (tool-name result-text is-error &optional details args)
-  (cond
-   ((string= tool-name "bash")
-    (let* ((exit-code (plist-get details :exitCode))
-           (cancelled (plist-get details :cancelled))
-           (full-output-path (plist-get details :fullOutputPath)))
-      (cond
-       (t
-        (when (not (string-empty-p result-text))
-          (insert (format "%s" result-text)))))
-      (when (eq cancelled t)
-        (pi-insert-error "Cancelled"))
-      (when (and (numberp exit-code) (not (zerop exit-code)))
-        (pi-insert-error (format "Command exited with code %d" exit-code)))
-      (when full-output-path
-        (insert "Output truncated. See full output at: ")
-        (pi-insert-file-link full-output-path))))
-   ((eq is-error t)
-    (when (not (string-empty-p result-text))
-      (pi-insert-error (format "%s" result-text))))
-   ((string= tool-name "read")
-    (when-let ((path (plist-get args :path)))
-      (when (not (string-empty-p result-text))
-        (pcase-let ((`(,clean-text . ,truncated-line) (pi-extract-truncation-notice result-text)))
-          (insert (pi-render-content (expand-file-name path (pi-project-root)) clean-text))
-          (when truncated-line
-            (insert truncated-line))))))
-   ((string= tool-name "edit")
-    (when-let ((diff (plist-get details :diff)))
-      (insert (pi-render-diff diff)))
-    (when (not (string-empty-p result-text))
-      (insert (format "%s" result-text))))
-   (t
-    (when (not (string-empty-p result-text))
-      (insert (format "%s" result-text))))))
-
 (defun pi-insert-message (message)
   (pcase (pi-message-role message)
     ("user"
@@ -729,7 +713,7 @@ PRED is called with KEY VALUE."
          (let ((call-section (pi-new-section 'tool-call pi-root-section :padding "\n")))
            (pi-insert-section call-section
              (pi-insert-tool-name "bash")
-             (insert (format "%s" command)))
+             (pi-format-tool-args "bash" (list :command command)))
            (pi-create-section 'tool-result call-section
              (pi-insert-tool-result "bash" output nil message))))))))
 
@@ -809,36 +793,84 @@ PRED is called with KEY VALUE."
     (setq pi-text-section nil
           pi-thinking-section nil)))
 
+;; read
+(defun pi-insert-read-args (args)
+  (when-let ((path (plist-get args :path)))
+    (let* ((offset (plist-get args :offset))
+           (limit (plist-get args :limit))
+           (start-line (or offset 1))
+           (suffix (cond
+                    ((and (null offset) (null limit)) "")
+                    ((null limit) (format ":%d" start-line))
+                    (t (let ((end-line (+ start-line limit -1)))
+                         (format ":%d-%d" start-line end-line))))))
+      (pi-insert-file-link (expand-file-name path (pi-project-root)) suffix))))
+
+(defun pi-insert-read-result (result-text _details args)
+  (when-let ((path (plist-get args :path)))
+    (when (not (string-empty-p result-text))
+      (pcase-let ((`(,clean-text . ,truncated-line) (pi-extract-truncation-notice result-text)))
+        (insert (pi-render-content (expand-file-name path (pi-project-root)) clean-text))
+        (when truncated-line
+          (insert truncated-line))))))
+
+;; write
+(defun pi-insert-write-args (args)
+  (when-let ((path (plist-get args :path))
+             (content (plist-get args :content)))
+    (pi-insert-file-link (expand-file-name path (pi-project-root)))
+    (when (not (string-empty-p content))
+      (insert "\n")
+      (insert (pi-render-content path content)))))
+
+(defun pi-insert-write-result (result-text _details _args)
+  (when (not (string-empty-p result-text))
+    (insert (format "%s" result-text))))
+
+;; edit
+(defun pi-insert-edit-args (args)
+  (when-let ((path (plist-get args :path)))
+    (pi-insert-file-link (expand-file-name path (pi-project-root)))))
+
+(defun pi-insert-edit-result (result-text details _args)
+  (when-let ((diff (plist-get details :diff)))
+    (insert (pi-render-diff diff)))
+  (when (not (string-empty-p result-text))
+    (insert (format "%s" result-text))))
+
+;; bash
+(defun pi-insert-bash-args (args)
+  (when-let ((command (plist-get args :command)))
+    (insert (format "%s" command))))
+
+(defun pi-insert-bash-result (result-text details _args)
+  (let* ((exit-code (plist-get details :exitCode))
+         (cancelled (plist-get details :cancelled))
+         (full-output-path (plist-get details :fullOutputPath)))
+    (when (not (string-empty-p result-text))
+      (insert (format "%s" result-text)))
+    (when (eq cancelled t)
+      (pi-insert-error "Cancelled"))
+    (when (and (numberp exit-code) (not (zerop exit-code)))
+      (pi-insert-error (format "Command exited with code %d" exit-code)))
+    (when full-output-path
+      (insert "Output truncated. See full output at: ")
+      (pi-insert-file-link full-output-path))))
 
 (defun pi-format-tool-args (tool-name args)
-  (pcase tool-name
-    ("read"
-     (when-let ((path (plist-get args :path)))
-       (let* ((offset (plist-get args :offset))
-              (limit (plist-get args :limit))
-              (start-line (or offset 1))
-              (suffix (cond
-                       ((and (null offset) (null limit)) "")
-                       ((null limit) (format ":%d" start-line))
-                       (t (let ((end-line (+ start-line limit -1)))
-                            (format ":%d-%d" start-line end-line))))))
-         (pi-insert-file-link (expand-file-name path (pi-project-root)) suffix))))
-    ("write"
-     (when-let ((path (plist-get args :path))
-                (content (plist-get args :content)))
-       (pi-insert-file-link (expand-file-name path (pi-project-root)))
-       (when (not (string-empty-p content))
-         (insert "\n")
-         (insert (pi-render-content path content)))))
-    ("edit"
-     (when-let ((path (plist-get args :path)))
-       (pi-insert-file-link (expand-file-name path (pi-project-root)))))
-    ("bash"
-     (when-let ((command (plist-get args :command)))
-       (insert (format "%s" command))))
-    (_
-     (unless (null args)
-       (insert (format "%S" args))))))
+  (if-let ((inserter (alist-get tool-name pi-insert-tool-args-functions nil nil #'equal)))
+      (funcall inserter args)
+    (unless (null args)
+      (insert (format "%S" args)))))
+
+(defun pi-insert-tool-result (tool-name result-text is-error &optional details args)
+  (if (eq is-error t)
+      (when (not (string-empty-p result-text))
+        (pi-insert-error (format "%s" result-text)))
+    (if-let ((inserter (alist-get tool-name pi-insert-tool-result-functions nil nil #'equal)))
+        (funcall inserter result-text details args)
+      (when (not (string-empty-p result-text))
+        (insert (format "%s" result-text))))))
 
 (defun pi-handle-tool-execution-update (event)
   (let* ((tool-call-id (plist-get event :toolCallId))
@@ -1499,7 +1531,7 @@ summarization."
         (pi-widget-save-excursion
           (pi-insert-section call-section
             (pi-insert-tool-name "bash")
-            (insert (format "%s" command))))
+            (pi-format-tool-args "bash" (list :command command))))
         (pi-send-command
          "bash" args
          (lambda (resp)
