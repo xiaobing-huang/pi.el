@@ -18,7 +18,7 @@ Increase or decrease this value to adjust spacing between sections."
 ;;
 
 (cl-defstruct pi-section
-  parent children beginning end type hidden info)
+  parent children beginning end type hidden info padding)
 
 (defun pi-set-section-info (info &optional section)
   (setf (pi-section-info section) info))
@@ -28,10 +28,12 @@ Increase or decrease this value to adjust spacing between sections."
     (set-marker-insertion-type m t)
     m))
 
-(defun pi-new-section (type parent)
-  (let* ((s (make-pi-section :parent parent
+(defun pi-new-section (type parent &rest args)
+  (let* ((padding (or (plist-get args :padding) pi-section-padding))
+         (s (make-pi-section :parent parent
                              :type type
-                             :hidden pi-section-hidden-default)))
+                             :hidden pi-section-hidden-default
+                             :padding padding)))
     (when parent
       (setf (pi-section-children parent)
             (nconc (pi-section-children parent)
@@ -54,7 +56,7 @@ Increase or decrease this value to adjust spacing between sections."
     `(let* ((,s ,section))
        (setf (pi-section-beginning ,s) (point-marker))
        ,@body
-       (insert pi-section-padding)
+       (insert (pi-section-padding ,s))
        (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
        (pi-update-section-end ,s (point-marker))
        (pi-propertize-section ,s)
@@ -76,9 +78,9 @@ Increase or decrease this value to adjust spacing between sections."
     `(let* ((,s ,section))
        (goto-char (pi-section-beginning ,s))
        (setf (pi-section-beginning ,s) (point-marker))
-       (goto-char (- (pi-section-end ,s) (length pi-section-padding)))
+       (goto-char (- (pi-section-end ,s) (length (pi-section-padding ,s))))
        ,@body
-       (forward-char (length pi-section-padding))
+       (forward-char (length (pi-section-padding ,s)))
        (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
        (pi-update-section-end ,s (point-marker))
        (pi-propertize-section ,s)
@@ -94,7 +96,7 @@ Increase or decrease this value to adjust spacing between sections."
        (goto-char (pi-section-beginning ,s))
        (setf (pi-section-beginning ,s) (point-marker))
        ,@body
-       (insert pi-section-padding)
+       (insert (pi-section-padding ,s))
        (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
        (pi-update-section-end ,s (point-marker))
        (pi-propertize-section ,s)

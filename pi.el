@@ -696,11 +696,11 @@ PRED is called with KEY VALUE."
                (tool-name (plist-get tool-call :name))
                (args (plist-get tool-call :arguments)))
            (pi-widget-save-excursion
-             (let ((call-section (pi-new-section 'tool pi-root-section)))
+             (let ((call-section (pi-new-section 'tool-call pi-root-section :padding "\n")))
                (pi-insert-section call-section
                  (pi-insert-tool-name tool-name)
                  (pi-format-tool-args tool-name args))
-               (let ((result-section (pi-new-section 'tool-execution call-section)))
+               (let ((result-section (pi-new-section 'tool-result call-section)))
                  (pi-insert-section result-section)
                  (puthash tool-call-id
                           (make-pi-tool-call
@@ -758,11 +758,11 @@ PRED is called with KEY VALUE."
                 (tool-name (plist-get tool-call :name))
                 (args (plist-get tool-call :arguments)))
            (pi-widget-save-excursion
-             (let ((call-section (pi-new-section 'tool pi-root-section)))
+             (let ((call-section (pi-new-section 'tool-call pi-root-section :padding "\n")))
                (pi-insert-section call-section
                  (pi-insert-tool-name tool-name)
                  (pi-format-tool-args tool-name args))
-               (let ((result-section (pi-new-section 'tool-execution call-section)))
+               (let ((result-section (pi-new-section 'tool-result call-section)))
                  (pi-insert-section result-section)
                  (puthash tool-call-id
                           (make-pi-tool-call
@@ -1484,13 +1484,13 @@ summarization."
     (pi-with-chat-buffer
       (setq pi-bash-in-progress t)
       (let ((args (list :command command))
-            (section (pi-new-section 'tool pi-root-section)))
+            (call-section (pi-new-section 'tool-call pi-root-section :padding "\n")))
         (when exclude-from-context
           (setq args (nconc args (list :excludeFromContext t))))
         (pi-widget-save-excursion
-          (pi-insert-section section
+          (pi-insert-section call-section
             (pi-insert-tool-name "bash")
-            (insert (format "%s\n" command))))
+            (insert (format "%s" command))))
         (pi-send-command
          "bash" args
          (lambda (resp)
@@ -1504,7 +1504,7 @@ summarization."
                                   (and cancelled
                                        (not (eq cancelled 'json-false))))))
                (pi-widget-save-excursion
-                 (pi-append-section section
+                 (pi-create-section 'tool-result call-section
                    (pi-insert-tool-result
                     "bash"
                     (plist-get data :output)
