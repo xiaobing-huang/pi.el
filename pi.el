@@ -64,6 +64,11 @@
   "Face used for tool names in tool execution events."
   :group 'pi)
 
+(defface pi-grep-match-face
+  '((t :inherit match))
+  "Face used to highlight matching text in grep tool results."
+  :group 'pi)
+
 (defcustom pi-sync-request-timeout 2
   "The number of seconds to wait for a sync response."
   :type 'integer
@@ -145,7 +150,8 @@ arguments the command accepts.")
   '(("read" . pi-insert-read-args)
     ("write" . pi-insert-write-args)
     ("edit" . pi-insert-edit-args)
-    ("bash" . pi-insert-bash-args))
+    ("bash" . pi-insert-bash-args)
+    ("grep" . pi-insert-grep-args))
   "Alist mapping tool names to inserter functions.
 
 Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
@@ -155,7 +161,8 @@ with ARGS plist to insert formatted tool call arguments.")
   '(("bash" . pi-insert-bash-result)
     ("read" . pi-insert-read-result)
     ("write" . pi-insert-write-result)
-    ("edit" . pi-insert-edit-result))
+    ("edit" . pi-insert-edit-result)
+    ("grep" . pi-insert-grep-result))
   "Alist mapping tool names to result inserter functions.
 
 Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
@@ -856,6 +863,56 @@ PRED is called with KEY VALUE."
     (when full-output-path
       (insert "Output truncated. See full output at: ")
       (pi-insert-file-link full-output-path))))
+
+;; grep
+(defun pi-insert-grep-args (args)
+  (let ((pattern (plist-get args :pattern))
+        (path (plist-get args :path))
+        (glob (plist-get args :glob))
+        (ignore-case (plist-get args :ignoreCase))
+        (literal (plist-get args :literal))
+        (limit (plist-get args :limit)))
+    (insert (propertize (format "/%s/" pattern) 'face 'font-lock-string-face))
+    (when path
+      (insert (format " in %s" path)))
+    (when glob
+      (insert (format " (%s)" glob)))
+    (when ignore-case
+      (insert " --ignore-case"))
+    (when literal
+      (insert " --literal"))
+    (when limit
+      (insert (format " limit %d" limit)))))
+
+(defun pi-insert-grep-highlighted (text pattern &optional ignore-case literal)
+  (let* ((regexp (if literal (regexp-quote pattern) pattern))
+         (case-fold-search (if ignore-case t nil)))
+    (insert (replace-regexp-in-string
+             regexp
+             (lambda (match)
+               (propertize match 'face 'pi-grep-match-face))
+             text))))
+
+(defun pi-insert-grep-result (result-text _details args)
+  (if (string-empty-p result-text)
+      (insert result-text)
+    (let ((pattern (plist-get args :pattern))
+          (ignore-case (plist-get args :ignoreCase))
+          (literal (plist-get args :literal)))
+      (if (or (null pattern) (string-empty-p pattern))
+          (insert result-text)
+        (let ((lines (split-string result-text "\n")))
+          (dolist (line lines)
+            (cond
+             ((string-match "^\\(.*\\):\\([0-9]+\\): \\(.*\\)$" line)
+              (insert (propertize (match-string 1 line) 'face 'compilation-info) ":")
+              (insert (propertize (match-string 2 line) 'face 'compilation-line-number))
+              (insert ": ")
+              (pi-insert-grep-highlighted (match-string 3 line) pattern ignore-case literal))
+             (t
+              (insert line)))
+            (insert "\n"))
+          (delete-char -1))))))
 
 (defun pi-format-tool-args (tool-name args)
   (if-let ((inserter (alist-get tool-name pi-insert-tool-args-functions nil nil #'equal)))
