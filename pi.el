@@ -6,7 +6,7 @@
 ;; URL: http://github.com/ananthakumaran/pi.el
 ;; Version: 0.1
 ;; Keywords: pi agent
-;; Package-Requires: ((emacs "28.1") (compat "31.0") (markdown-mode "2.8") (timeout "2.1.7"))
+;; Package-Requires: ((emacs "28.1") (compat "31.0") (markdown-mode "2.8") (timeout "2.1.7") (pcre2el "1.12"))
 
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@
 (require 'subr-x)
 (require 'parse-time)
 (require 'timeout)
+(require 'pcre2el)
 
 (defgroup pi nil
   "Emacs client for Pi."
@@ -883,6 +884,7 @@ PRED is called with KEY VALUE."
         (glob (plist-get args :glob))
         (ignore-case (plist-get args :ignoreCase))
         (literal (plist-get args :literal))
+        (context (plist-get args :context))
         (limit (plist-get args :limit)))
     (insert (propertize (format "/%s/" pattern) 'face 'font-lock-string-face))
     (when path
@@ -893,17 +895,25 @@ PRED is called with KEY VALUE."
       (insert " --ignore-case"))
     (when literal
       (insert " --literal"))
+    (when context
+      (insert (format " -C %d" context)))
     (when limit
       (insert (format " limit %d" limit)))))
 
 (defun pi-insert-grep-highlighted (text pattern &optional ignore-case literal)
-  (let* ((regexp (if literal (regexp-quote pattern) pattern))
+  (let* ((regexp (if literal
+                     (regexp-quote pattern)
+                   (condition-case nil
+                       (rxt-pcre-to-elisp pattern)
+                     (error nil))))
          (case-fold-search (if ignore-case t nil)))
-    (insert (replace-regexp-in-string
-             regexp
-             (lambda (match)
-               (propertize match 'face 'pi-grep-match-face))
-             text))))
+    (if (null regexp)
+        (insert text)
+      (insert (replace-regexp-in-string
+               regexp
+               (lambda (match)
+                 (propertize match 'face 'pi-grep-match-face))
+               text)))))
 
 (defun pi-insert-grep-result (result-text _details args)
   (if (string-empty-p result-text)
@@ -921,6 +931,12 @@ PRED is called with KEY VALUE."
               (insert (propertize (match-string 2 line) 'face 'compilation-line-number))
               (insert ": ")
               (pi-insert-grep-highlighted (match-string 3 line) pattern ignore-case literal))
+             ((string-match "^\\(.*\\)\\([-:]\\)\\([0-9]+\\)\\([-:]\\)\\(.*\\)$" line)
+              (insert (propertize (match-string 1 line) 'face 'compilation-info))
+              (insert (match-string 2 line))
+              (insert (propertize (match-string 3 line) 'face 'compilation-line-number))
+              (insert (match-string 4 line))
+              (insert (match-string 5 line)))
              (t
               (insert line)))
             (insert "\n"))
