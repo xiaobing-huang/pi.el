@@ -464,8 +464,10 @@ PRED is called with KEY VALUE."
 (defun pi-agent-buffer-name ()
   (format "*pi-agent:%s*" (pi-project-name)))
 
-(defun pi-chat-buffer-name ()
-  (format "*pi-chat:%s*" (pi-project-name)))
+(defun pi-chat-buffer-name (&optional title)
+  (if title
+      (format "*pi-chat:%s:%s*" (pi-project-name) title)
+    (format "*pi-chat:%s*" (pi-project-name))))
 
 (defun pi-project-key ()
   "Unique key for the current project, used for internal hash tables."
@@ -1318,6 +1320,11 @@ PRED is called with KEY VALUE."
                            (list :id id :cancelled t)))
         prefill)))))
 
+(defun pi-handle-set-title (event)
+  (let ((title (plist-get event :title)))
+    (when title
+      (rename-buffer (pi-chat-buffer-name title) t))))
+
 (defun pi-handle-extension-ui-request (event)
   (pcase (plist-get event :method)
     ("notify" (pi-handle-notify event))
@@ -1327,7 +1334,8 @@ PRED is called with KEY VALUE."
     ("editor" (pi-handle-editor event))
     ("set_editor_text" (pi-handle-set-editor-text event))
     ("setWidget" (pi-handle-set-widget event))
-    ("setStatus" (pi-handle-set-status event))))
+    ("setStatus" (pi-handle-set-status event))
+    ("setTitle" (pi-handle-set-title event))))
 
 (defun pi-register-event-listeners ()
   (pi-set-event-listener "message_update" #'pi-handle-message-update)
@@ -1763,19 +1771,20 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                  (insert (format "Cycled thinking level to: %s" level)))))))))))
 
 (cl-defstruct pi-session-choice
-  id message timestamp cwd path parent-id)
+  id message timestamp cwd path parent-id name)
 
 (defun pi-read-session-choice (filename)
   (with-temp-buffer
-    (insert-file-contents filename nil 0 5000)
+    (insert-file-contents filename nil 0 10000)
     (goto-char (point-min))
     (let ((id nil)
           (timestamp nil)
           (cwd nil)
           (parent-id nil)
           (first-text nil)
+          (name nil)
           (lines-read 0))
-      (while (and (null first-text) (< lines-read 10) (not (eobp)))
+      (while (and (< lines-read 20) (not (eobp)))
         (let ((line (buffer-substring-no-properties
                      (line-beginning-position) (line-end-position))))
           (unless (string-empty-p line)
@@ -1791,11 +1800,14 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                         (file-name-nondirectory ps))))
                      (when parent-id
                        (setq parent-id (car (last (split-string parent-id "_"))))))
+                    ('session_info
+                     (setq name (plist-get json :name)))
                     ('message
-                     (let ((first-msg-text (pi-content-text (plist-get json :message))))
-                       (when (and (not (string-empty-p first-msg-text))
-                                  (null first-text))
-                         (setq first-text (truncate-string-to-width first-msg-text 80 nil nil t)))))))
+                     (unless first-text
+                      (let ((first-msg-text (pi-content-text (plist-get json :message))))
+                        (when (and (not (string-empty-p first-msg-text))
+                                   (null first-text))
+                          (setq first-text (truncate-string-to-width first-msg-text 80 nil nil t))))))))
               (error nil))))
         (forward-line 1)
         (cl-incf lines-read))
@@ -1807,7 +1819,8 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                              (error nil)))
                               :cwd cwd
                               :parent-id parent-id
-                              :message first-text))))
+                              :message first-text
+                              :name name))))
 
 (defun pi-resume ()
   (interactive)
@@ -1837,7 +1850,11 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                (short-id (substring (pi-session-choice-id s) -8))
                                (short-parent (when-let ((pid (pi-session-choice-parent-id s)))
                                                (substring pid -8))))
-                          (cons (format "%s  %s  %s%s" short-id formatted-time (pi-session-choice-message s)
+                          (cons (format "%s  %s  %s%s%s" short-id formatted-time
+                                        (if (pi-session-choice-name s)
+                                            (format "[%s] " (pi-session-choice-name s))
+                                          "")
+                                        (pi-session-choice-message s)
                                         (if short-parent (format " (parent: %s)" short-parent) ""))
                                 s)))
                       sessions))
@@ -1905,10 +1922,10 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
         (pi-send-command
          "set_session_name" (list :name trimmed)
          (pi-on-response-success-callback resp
+           (rename-buffer (pi-chat-buffer-name trimmed) t)
            (pi-widget-save-excursion
              (pi-create-section 'info pi-root-section
                (insert (format "Session renamed to: %s" trimmed))))))))))
-
 
 (defun pi-export (&optional output-path)
   (interactive
