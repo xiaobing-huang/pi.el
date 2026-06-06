@@ -163,6 +163,7 @@ when agent stops."
     ("new" pi-new-session 0)
     ("resume" pi-resume 0)
     ("compact" pi-compact 1)
+    ("set-auto-compaction" pi-set-auto-compaction 0)
     ("session" pi-session-stats 0)
     ("name" pi-set-session-name 1)
     ("set-thinking-level" pi-set-thinking-level 0)
@@ -1980,6 +1981,17 @@ summarization."
                     (list :customInstructions custom-instructions)
                   '())))
       (pi-send-command "compact" args))))
+
+(defun pi-set-auto-compaction (enabled)
+  (interactive (list (y-or-n-p "Enable auto compaction? ")))
+  (pi-with-chat-buffer
+    (pi-send-command
+     "set_auto_compaction" (list :enabled enabled)
+     (pi-on-response-success-callback resp
+       (pi-update-header-line)
+       (pi-widget-save-excursion
+         (pi-create-section 'info pi-root-section
+           (insert (format "Compaction set to: %s" (if enabled "auto" "manual")))))))))
 
 (defun pi-bash (command &optional exclude-from-context)
   (interactive "sBash command: ")

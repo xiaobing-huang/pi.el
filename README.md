@@ -98,6 +98,7 @@ when agent stops.
 ```elisp
 (("model" pi-select-model 0) ("new" pi-new-session 0)
  ("resume" pi-resume 0) ("compact" pi-compact 1)
+ ("set-auto-compaction" pi-set-auto-compaction 0)
  ("session" pi-session-stats 0) ("name" pi-set-session-name 1)
  ("set-thinking-level" pi-set-thinking-level 0)
  ("cycle-model" pi-cycle-model 0)
