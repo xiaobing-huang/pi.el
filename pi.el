@@ -71,6 +71,21 @@
   "Face used to highlight matching text in grep tool results."
   :group 'pi)
 
+(defface pi-notify-info-face
+  '((t :inherit shadow))
+  "Face used for info notification messages."
+  :group 'pi)
+
+(defface pi-notify-warning-face
+  '((t :inherit warning))
+  "Face used for warning notification messages."
+  :group 'pi)
+
+(defface pi-notify-error-face
+  '((t :inherit error))
+  "Face used for error notification messages."
+  :group 'pi)
+
 (defcustom pi-sync-request-timeout 2
   "The number of seconds to wait for a sync response."
   :type 'integer
@@ -477,12 +492,19 @@ PRED is called with KEY VALUE."
     ((response) (pi-dispatch-response response))
     (t (pi-dispatch-event response))))
 
+(defun pi-plist-merge (&rest plists)
+  (let (result)
+    (dolist (plist plists result)
+      (while plist
+        (setq result (plist-put result (car plist) (cadr plist))
+              plist (cddr plist))))))
+
 (defun pi-send-command (type args &optional callback)
   (unless (pi-current-agent)
     (error "Agent does not exist.  Run M-x pi-restart-chat to start it again"))
 
   (let* ((request-id (pi-next-request-id))
-         (command (append (list :id request-id :type type) args))
+         (command (pi-plist-merge (list :id request-id :type type) args))
          (encoded-command (pi-json-encode command))
          (payload (concat encoded-command "\n")))
     (pi-maybe-log-rpc encoded-command)
@@ -1088,6 +1110,84 @@ PRED is called with KEY VALUE."
             (pi-insert-role-prefix "assistant")
             (insert (pi-render-markdown (concat header summary))))))))))
 
+(defun pi-handle-notify (event)
+  (let* ((message (plist-get event :message))
+         (notify-type (or (plist-get event :notifyType) "info"))
+         (face (pcase notify-type
+                 ("warning" 'pi-notify-warning-face)
+                 ("error" 'pi-notify-error-face)
+                 (_ 'pi-notify-info-face))))
+    (pi-widget-save-excursion
+      (pi-create-section 'notify pi-root-section
+        (insert (propertize message 'face face))))))
+
+(defun pi-handle-extension-ui-prompt (event prompt-fn)
+  (let ((id (plist-get event :id)))
+    (condition-case nil
+        (funcall prompt-fn)
+      (quit
+       (pi-send-command "extension_ui_response"
+                        (list :id id :cancelled t))))))
+
+(defun pi-handle-select (event)
+  (let* ((id (plist-get event :id))
+         (title (plist-get event :title))
+         (options (plist-get event :options)))
+    (pi-widget-save-excursion
+      (pi-create-section 'select pi-root-section
+        (insert (propertize (format "%s:" title) 'face 'pi-chat-role-face))
+        (dolist (option options)
+          (insert "\n")
+          (insert (propertize (format "  • %s" option) 'face 'pi-notify-info-face)))))
+    (pi-handle-extension-ui-prompt
+     event
+     (lambda ()
+       (let ((selected (completing-read (concat title ": ") options nil t)))
+         (pi-send-command "extension_ui_response"
+                          (list :id id :value selected)))))))
+
+(defun pi-handle-confirm (event)
+  (let* ((id (plist-get event :id))
+         (title (plist-get event :title))
+         (message (plist-get event :message)))
+    (pi-widget-save-excursion
+      (pi-create-section 'confirm pi-root-section
+        (insert (propertize (format "%s:" title) 'face 'pi-chat-role-face))
+        (insert "\n")
+        (insert (propertize message 'face 'pi-notify-info-face))))
+    (pi-handle-extension-ui-prompt
+     event
+     (lambda ()
+       (let ((confirmed (y-or-n-p (concat message " "))))
+         (pi-send-command "extension_ui_response"
+                          (list :id id :confirmed (if confirmed t 'json-false))))))))
+
+(defun pi-handle-input (event)
+  (let* ((id (plist-get event :id))
+         (title (plist-get event :title))
+         (placeholder (plist-get event :placeholder)))
+    (pi-widget-save-excursion
+      (pi-create-section 'input pi-root-section
+        (insert (propertize (format "%s:" title) 'face 'pi-chat-role-face))
+        (when placeholder
+          (insert "\n")
+          (insert (propertize placeholder 'face 'pi-notify-info-face)))))
+    (pi-handle-extension-ui-prompt
+     event
+     (lambda ()
+       (let ((value (read-from-minibuffer
+                     (concat title
+                             (if placeholder (format " (%s) " placeholder) ": ")))))
+         (pi-send-command "extension_ui_response"
+                          (list :id id :value value)))))))
+
+(defun pi-handle-extension-ui-request (event)
+  (pcase (plist-get event :method)
+    ("notify" (pi-handle-notify event))
+    ("select" (pi-handle-select event))
+    ("confirm" (pi-handle-confirm event))
+    ("input" (pi-handle-input event))))
+
 (defun pi-register-event-listeners ()
   (pi-set-event-listener "message_update" #'pi-handle-message-update)
   (pi-set-event-listener "message_end" #'pi-handle-message-end)
@@ -1100,6 +1200,7 @@ PRED is called with KEY VALUE."
 
   (pi-set-event-listener "queue_update" #'pi-handle-queue-update)
   (pi-set-event-listener "compaction_end" #'pi-handle-compaction-end)
+  (pi-set-event-listener "extension_ui_request" #'pi-handle-extension-ui-request)
   (pi-set-event-listener t #'pi-handle-agent-state))
 
 (defun pi-focus-prompt ()
