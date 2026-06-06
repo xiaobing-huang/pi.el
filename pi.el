@@ -2086,6 +2086,7 @@ summarization."
     (keymap-set map "M-g l" #'pi-goto-last-section)
     (keymap-set map "C-k" #'widget-kill-line)
     (keymap-set map "C-e" #'widget-end-of-line)
+    (keymap-set map "C-m" #'widget-field-activate)
     map))
 
 (define-derived-mode pi-chat-mode nil "pi-chat"
