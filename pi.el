@@ -1121,6 +1121,13 @@ PRED is called with KEY VALUE."
       (pi-create-section 'notify pi-root-section
         (insert (propertize message 'face face))))))
 
+(defun pi-handle-set-editor-text (event)
+  (let ((text (plist-get event :text))
+        (current (widget-value pi-prompt-widget)))
+    (unless (string-empty-p current)
+      (pi-clear-prompt current))
+    (widget-value-set pi-prompt-widget text)))
+
 (defun pi-handle-extension-ui-prompt (event prompt-fn)
   (let ((id (plist-get event :id)))
     (condition-case nil
@@ -1186,7 +1193,8 @@ PRED is called with KEY VALUE."
     ("notify" (pi-handle-notify event))
     ("select" (pi-handle-select event))
     ("confirm" (pi-handle-confirm event))
-    ("input" (pi-handle-input event))))
+    ("input" (pi-handle-input event))
+    ("set_editor_text" (pi-handle-set-editor-text event))))
 
 (defun pi-register-event-listeners ()
   (pi-set-event-listener "message_update" #'pi-handle-message-update)
@@ -1326,7 +1334,9 @@ PRED is called with KEY VALUE."
         result))))
 
 (defun pi-clear-prompt (prompt)
-  (widget-value-set pi-prompt-widget "")
+  (let ((current (widget-value pi-prompt-widget)))
+    (when (string= current prompt)
+      (widget-value-set pi-prompt-widget "")))
   (unless (and (> (ring-length pi-prompt-history) 0)
                (equal prompt (ring-ref pi-prompt-history 0)))
     (ring-insert pi-prompt-history prompt))
