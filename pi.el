@@ -1809,10 +1809,10 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                      (setq name (plist-get json :name)))
                     ('message
                      (unless first-text
-                      (let ((first-msg-text (pi-content-text (plist-get json :message))))
-                        (when (and (not (string-empty-p first-msg-text))
-                                   (null first-text))
-                          (setq first-text (truncate-string-to-width first-msg-text 80 nil nil t))))))))
+                       (let ((first-msg-text (pi-content-text (plist-get json :message))))
+                         (when (and (not (string-empty-p first-msg-text))
+                                    (null first-text))
+                           (setq first-text (truncate-string-to-width first-msg-text 80 nil nil t))))))))
               (error nil))))
         (forward-line 1)
         (cl-incf lines-read))
@@ -2077,13 +2077,15 @@ summarization."
   "q" #'pi-quit-chat)
 
 (defvar pi-chat-widget-field-keymap
-  (let ((map (make-composed-keymap nil widget-field-keymap)))
+  (let ((map (make-sparse-keymap)))
     (keymap-set map "C-g" #'pi-abort)
     (keymap-set map "M-p" #'pi-previous-prompt)
     (keymap-set map "M-n" #'pi-next-prompt)
     (keymap-set map "C-r" #'pi-search-prompt)
     (keymap-set map "M-RET" #'pi-send-prompt-alternate)
     (keymap-set map "M-g l" #'pi-goto-last-section)
+    (keymap-set map "C-k" #'widget-kill-line)
+    (keymap-set map "C-e" #'widget-end-of-line)
     map))
 
 (define-derived-mode pi-chat-mode nil "pi-chat"
