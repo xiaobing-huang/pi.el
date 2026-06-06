@@ -102,7 +102,8 @@ when agent stops.
  ("set-thinking-level" pi-set-thinking-level 0)
  ("cycle-model" pi-cycle-model 0)
  ("cycle-thinking-level" pi-cycle-thinking-level 0)
- ("set-steering-mode" pi-set-steering-mode 0) ("fork" pi-fork 0)
+ ("set-steering-mode" pi-set-steering-mode 0)
+ ("set-follow-up-mode" pi-set-follow-up-mode 0) ("fork" pi-fork 0)
  ("clone" pi-clone 0) ("copy" pi-copy 0) ("export" pi-export 1)
  ("quit" pi-quit-chat 0) ("exit" pi-quit-chat 0))
 ```

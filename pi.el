@@ -169,6 +169,7 @@ when agent stops."
     ("cycle-model" pi-cycle-model 0)
     ("cycle-thinking-level" pi-cycle-thinking-level 0)
     ("set-steering-mode" pi-set-steering-mode 0)
+    ("set-follow-up-mode" pi-set-follow-up-mode 0)
     ("fork" pi-fork 0)
     ("clone" pi-clone 0)
     ("copy" pi-copy 0)
@@ -1621,6 +1622,26 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
     (:high    . "Deep reasoning (~16k tokens)")
     (:xhigh   . "Maximum reasoning (~32k tokens)")))
 
+(defvar pi-prompt-modes
+  '((:one-at-a-time . "One at a time")
+    (:all . "All")))
+
+(defun pi-read-option (options current prompt)
+  (let* ((items (mapcar (lambda (opt)
+                          (cons (cdr opt) (car opt)))
+                        options))
+         (current-keyword (when current
+                            (intern (concat ":" current))))
+         (default-display (when current-keyword
+                            (cdr (assoc current-keyword options))))
+         (selected-display (completing-read
+                            (format "%s (current: %s): " prompt (or current "?"))
+                            items nil t nil nil default-display)))
+    (when selected-display
+      (let ((selected-keyword (alist-get selected-display items nil nil #'equal)))
+        (cons (pi-keyword-name selected-keyword)
+              (cdr (assoc selected-keyword options)))))))
+
 (defun pi-get-supported-thinking-levels (model)
   (let ((thinking-level-map (plist-get model :thinkingLevelMap))
         (reasoning (plist-get model :reasoning))
@@ -1643,36 +1664,29 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
      (pi-on-response-success-callback resp
        (let* ((data (plist-get resp :data))
               (model (plist-get data :model))
-              (current-level (when-let ((l (plist-get data :thinkingLevel)))
-                               (intern (concat ":" l))))
-              (supported-levels (pi-get-supported-thinking-levels model))
-              (items
-               (mapcar
-                (lambda (level)
-                  (let* ((name (pi-keyword-name level))
-                         (desc (alist-get level pi-thinking-level-descriptions)))
-                    (cons (if desc
-                              (format "%s — %s" name desc)
-                            name)
-                          level)))
-                supported-levels)))
+              (current-level (plist-get data :thinkingLevel))
+              (supported-levels (pi-get-supported-thinking-levels model)))
          (if (null supported-levels)
              (message "No thinking levels available for this model.")
-           (let* ((default (or current-level :off))
-                  (default-display (alist-get default items))
-                  (selected-display (completing-read
-                                     (format "Set thinking level (current: %s): "
-                                             (or (plist-get data :thinkingLevel) "?"))
-                                     items nil t nil nil default-display))
-                  (selected (alist-get selected-display items nil nil #'equal))
-                  (selected-str (pi-keyword-name selected)))
-             (pi-send-command
-              "set_thinking_level" (list :level selected-str)
-              (pi-on-response-success-callback resp
-                (pi-update-header-line)
-                (pi-widget-save-excursion
-                  (pi-create-section 'thinking pi-root-section
-                    (insert (format "Thinking level set to: %s" selected-str)))))))))))))
+           (let* ((options
+                   (mapcar
+                    (lambda (level)
+                      (let* ((name (pi-keyword-name level))
+                             (desc (alist-get level pi-thinking-level-descriptions)))
+                        (cons level
+                              (if desc
+                                  (format "%s — %s" name desc)
+                                name))))
+                    supported-levels))
+                  (choice (pi-read-option options current-level "Set thinking level")))
+             (when choice
+               (pi-send-command
+                "set_thinking_level" (list :level (car choice))
+                (pi-on-response-success-callback resp
+                  (pi-update-header-line)
+                  (pi-widget-save-excursion
+                    (pi-create-section 'thinking pi-root-section
+                      (insert (format "Thinking level set to: %s" (car choice)))))))))))))))
 
 (defun pi-cycle-model ()
   (interactive)
@@ -1703,22 +1717,33 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
      (pi-on-response-success-callback resp
        (let* ((data (plist-get resp :data))
               (current-mode (plist-get data :steeringMode))
-              (items '(("all" . "All")
-                       ("one-at-a-time" . "One at a time")))
-              (default (or current-mode "all"))
-              (default-display (alist-get default items nil nil #'equal))
-              (selected-display (completing-read
-                                 (format "Set steering mode (current: %s): "
-                                         (or current-mode "?"))
-                                 items nil t nil nil default-display))
-              (selected (alist-get selected-display items nil nil #'equal)))
-         (pi-send-command
-          "set_steering_mode" (list :mode selected)
-          (pi-on-response-success-callback resp
-            (pi-update-header-line)
-            (pi-widget-save-excursion
-              (pi-create-section 'info pi-root-section
-                (insert (format "Steering mode set to: %s" selected)))))))))))
+              (choice (pi-read-option pi-prompt-modes current-mode "Set steering mode")))
+         (when choice
+           (pi-send-command
+            "set_steering_mode" (list :mode (car choice))
+            (pi-on-response-success-callback resp
+              (pi-update-header-line)
+              (pi-widget-save-excursion
+                (pi-create-section 'info pi-root-section
+                  (insert (format "Steering mode set to: %s" (cdr choice)))))))))))))
+
+(defun pi-set-follow-up-mode ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_state" '()
+     (pi-on-response-success-callback resp
+       (let* ((data (plist-get resp :data))
+              (current-mode (plist-get data :followUpMode))
+              (choice (pi-read-option pi-prompt-modes current-mode "Set follow-up mode")))
+         (when choice
+           (pi-send-command
+            "set_follow_up_mode" (list :mode (car choice))
+            (pi-on-response-success-callback resp
+              (pi-update-header-line)
+              (pi-widget-save-excursion
+                (pi-create-section 'info pi-root-section
+                  (insert (format "Follow-up mode set to: %s" (cdr choice)))))))))))))
 
 (defun pi-cycle-thinking-level ()
   (interactive)
