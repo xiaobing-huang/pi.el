@@ -35,6 +35,7 @@
 (require 'markdown-mode)
 (require 'cl-lib)
 (require 'pi-section)
+(require 'pi-edit)
 (require 'subr-x)
 (require 'parse-time)
 (require 'timeout)
@@ -1188,12 +1189,32 @@ PRED is called with KEY VALUE."
          (pi-send-command "extension_ui_response"
                           (list :id id :value value)))))))
 
+(defun pi-handle-editor (event)
+  (let* ((id (plist-get event :id))
+         (title (plist-get event :title))
+         (prefill (plist-get event :prefill)))
+    (pi-widget-save-excursion
+      (pi-create-section 'input pi-root-section
+        (insert (propertize (format "%s:" title) 'face 'pi-chat-role-face))))
+    (pi-handle-extension-ui-prompt
+     event
+     (lambda ()
+       (pi-with-editor
+        (lambda (value)
+          (pi-send-command "extension_ui_response"
+                           (list :id id :value value)))
+        (lambda ()
+          (pi-send-command "extension_ui_response"
+                           (list :id id :cancelled t)))
+        prefill)))))
+
 (defun pi-handle-extension-ui-request (event)
   (pcase (plist-get event :method)
     ("notify" (pi-handle-notify event))
     ("select" (pi-handle-select event))
     ("confirm" (pi-handle-confirm event))
     ("input" (pi-handle-input event))
+    ("editor" (pi-handle-editor event))
     ("set_editor_text" (pi-handle-set-editor-text event))))
 
 (defun pi-register-event-listeners ()
@@ -1883,7 +1904,6 @@ summarization."
     (kill-buffer buffer))
   (pi-kill-agent)
   (pi-chat))
-
 
 (provide 'pi)
 

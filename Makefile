@@ -29,7 +29,7 @@ format:
                 (message \"formatting %s\" f) \
 	        (indent-region (point-min) (point-max)) \
 	        (save-buffer))))" \
-          pi.el pi-section.el pi-tests.el pi-section-tests.el
+          pi.el pi-section.el pi-edit.el pi-tests.el pi-section-tests.el
 
 
 .PHONY: sandbox
