@@ -168,6 +168,7 @@ when agent stops."
     ("set-thinking-level" pi-set-thinking-level 0)
     ("cycle-model" pi-cycle-model 0)
     ("cycle-thinking-level" pi-cycle-thinking-level 0)
+    ("set-steering-mode" pi-set-steering-mode 0)
     ("fork" pi-fork 0)
     ("clone" pi-clone 0)
     ("copy" pi-copy 0)
@@ -1693,6 +1694,31 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                  (plist-get model :id)
                                  (or thinking-level "?")
                                  (if (eq is-scoped t) " (scoped)" ""))))))))))))
+
+(defun pi-set-steering-mode ()
+  (interactive)
+  (pi-with-chat-buffer
+    (pi-send-command
+     "get_state" '()
+     (pi-on-response-success-callback resp
+       (let* ((data (plist-get resp :data))
+              (current-mode (plist-get data :steeringMode))
+              (items '(("all" . "All")
+                       ("one-at-a-time" . "One at a time")))
+              (default (or current-mode "all"))
+              (default-display (alist-get default items nil nil #'equal))
+              (selected-display (completing-read
+                                 (format "Set steering mode (current: %s): "
+                                         (or current-mode "?"))
+                                 items nil t nil nil default-display))
+              (selected (alist-get selected-display items nil nil #'equal)))
+         (pi-send-command
+          "set_steering_mode" (list :mode selected)
+          (pi-on-response-success-callback resp
+            (pi-update-header-line)
+            (pi-widget-save-excursion
+              (pi-create-section 'info pi-root-section
+                (insert (format "Steering mode set to: %s" selected)))))))))))
 
 (defun pi-cycle-thinking-level ()
   (interactive)
