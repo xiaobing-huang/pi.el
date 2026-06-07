@@ -243,3 +243,10 @@ Alist mapping tool names to call visitor functions.
 Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
 with (ARGS) to visit the relevant location of the tool call.
 
+#### pi-insert-custom-message-functions `nil`
+
+Alist mapping custom message types to inserter functions.
+
+Each entry is (CUSTOM-TYPE . FUNCTION) where FUNCTION is called
+with the message plist to insert the custom message content.
+

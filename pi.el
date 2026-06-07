@@ -248,6 +248,14 @@ with (ARGS) to visit the relevant location of the tool call."
   :type '(alist :key-type string :value-type function)
   :group 'pi)
 
+(defcustom pi-insert-custom-message-functions '()
+  "Alist mapping custom message types to inserter functions.
+
+Each entry is (CUSTOM-TYPE . FUNCTION) where FUNCTION is called
+with the message plist to insert the custom message content."
+  :type '(alist :key-type string :value-type function)
+  :group 'pi)
+
 (defvar-local pi-project-file-cache nil)
 
 (defun pi-maybe-log-rpc (json)
@@ -760,12 +768,17 @@ PRED is called with KEY VALUE."
   (or (plist-get message :role) "unknown"))
 
 (defun pi-content-join (message type)
-  (mapconcat
-   (lambda (item)
-     (when (equal (plist-get item :type) type)
-       (plist-get item (intern (concat ":" type)))))
-   (plist-get message :content)
-   ""))
+  (let ((content (plist-get message :content)))
+    (if (stringp content)
+        (if (string= type "text")
+            content
+          "")
+      (mapconcat
+       (lambda (item)
+         (when (equal (plist-get item :type) type)
+           (plist-get item (intern (concat ":" type)))))
+       content
+       ""))))
 
 (defun pi-content-text (message)
   (pi-content-join message "text"))
@@ -793,6 +806,18 @@ PRED is called with KEY VALUE."
       (cons (replace-match "" nil nil result-text)
             (match-string 1 result-text))
     (cons result-text nil)))
+
+(defun pi-insert-custom-message (message)
+  (let ((display (plist-get message :display))
+        (custom-type (plist-get message :customType)))
+    (unless (eq display 'json-false)
+      (if-let ((inserter (alist-get custom-type pi-insert-custom-message-functions nil nil #'equal)))
+          (funcall inserter message)
+        ;; Default rendering: use customType as role, render content
+        (pi-widget-save-excursion
+          (pi-create-section 'custom pi-root-section
+            (pi-insert-role-prefix (or custom-type "custom"))
+            (insert (pi-render-markdown (pi-content-text message)))))))))
 
 (defun pi-insert-message (message)
   (pcase (pi-message-role message)
@@ -865,7 +890,10 @@ PRED is called with KEY VALUE."
            (pi-set-section-info call-section (list "bash" args))
            (pi-insert-section result-section
              (pi-insert-tool-result "bash" output nil message))
-           (pi-set-section-info result-section (list "bash" nil args))))))))
+           (pi-set-section-info result-section (list "bash" nil args))))))
+
+    ("custom"
+     (pi-insert-custom-message message))))
 
 (defun pi-handle-message-update (event)
   (let* ((assistant-message-event (plist-get event :assistantMessageEvent))
@@ -940,6 +968,8 @@ PRED is called with KEY VALUE."
         (pi-replace-section pi-text-section
           (pi-insert-role-prefix role)
           (insert (pi-render-markdown text)))))
+    (when (equal role "custom")
+      (pi-insert-custom-message message))
     ;; Cleanup tracking state
     (setq pi-text-section nil
           pi-thinking-section nil)))
