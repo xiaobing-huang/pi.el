@@ -1633,16 +1633,17 @@ If `pi-prompt-streaming-behavior' is `followUp', use `steer' and vice versa."
 (defun pi-abort ()
   (interactive)
   (pi-with-chat-buffer
-    (pi-send-command
-     (cond
-      (pi-retry-in-progress "abort_retry")
-      (pi-bash-in-progress "abort_bash")
-      (t "abort"))
-     '()
-     (pi-on-response-success-callback resp
-       (pi-widget-save-excursion
-         (pi-create-section 'error pi-root-section
-           (pi-insert-error "Aborted"))))))
+    (when (or pi-retry-in-progress pi-bash-in-progress pi-agent-state)
+      (pi-send-command
+       (cond
+        (pi-retry-in-progress "abort_retry")
+        (pi-bash-in-progress "abort_bash")
+        (pi-agent-state "abort"))
+       '()
+       (pi-on-response-success-callback resp
+         (pi-widget-save-excursion
+           (pi-create-section 'error pi-root-section
+             (pi-insert-error "Aborted")))))))
   (keyboard-quit))
 
 (defun pi-insert-stats-section (header plist fields)
@@ -2202,7 +2203,7 @@ With a prefix argument, visit in other window."
 (defvar-keymap pi-chat-mode-map
   :doc "Keymap for `pi-chat-mode'."
   :parent special-mode-map
-  "C-g" #'pi-abort
+  "<remap> <keyboard-quit>" #'pi-abort
   "RET" #'pi-visit-item
   "TAB" #'pi-toggle-section
   "C-i" #'pi-toggle-section
@@ -2217,7 +2218,7 @@ With a prefix argument, visit in other window."
 
 (defvar pi-chat-widget-field-keymap
   (let ((map (make-sparse-keymap)))
-    (keymap-set map "C-g" #'pi-abort)
+    (keymap-set map "<remap> <keyboard-quit>" #'pi-abort)
     (keymap-set map "M-p" #'pi-previous-prompt)
     (keymap-set map "M-n" #'pi-next-prompt)
     (keymap-set map "C-r" #'pi-search-prompt)
