@@ -24,7 +24,7 @@ integration: compile
 
 .PHONY: format
 format:
-	cask emacs --batch -L . -l pi.el -l pi-section.el -l pi-tests.el -l pi-section-tests.el \
+	cask emacs --batch -L . -l pi.el -l pi-section.el -l pi-edit.el -l pi-tests.el -l pi-section-tests.el \
 	  --eval " \
 	  (progn \
             (setq-default indent-tabs-mode nil) \

@@ -28,12 +28,13 @@
 
 ;;; Code:
 
+(require 'cl-lib)
+(require 'compat)
 (require 'project)
 (require 'widget)
 (require 'wid-edit)
 (require 'ring)
 (require 'markdown-mode)
-(require 'cl-lib)
 (require 'pi-section)
 (require 'pi-edit)
 (require 'subr-x)

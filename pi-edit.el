@@ -19,6 +19,7 @@
 ;;; Commentary:
 
 (require 'cl-lib)
+(require 'compat)
 
 ;;; Code:
 
