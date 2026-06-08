@@ -2328,6 +2328,13 @@ With a prefix argument, visit in other window."
                                buffer)))))
       (pop-to-buffer chat-buffer))))
 
+(defun pi-toggle-chat ()
+  "Toggle chat window."
+  (interactive)
+  (if-let* ((chat-buffer (pi-current-chat))
+            (chat-window (get-buffer-window chat-buffer t)))
+      (delete-window chat-window)
+    (pi-chat)))
 
 (defun pi-quit-chat ()
   "Quit the current chat window."
