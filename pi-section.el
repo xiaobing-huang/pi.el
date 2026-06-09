@@ -99,7 +99,7 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
 
 (defmacro pi-create-section (type parent &rest body)
   (declare (indent 2)
-           (debug (symbolp body)))
+           (debug (symbolp symbolp body)))
   (let ((s (make-symbol "*section*")))
     `(let* ((,s (pi-new-section ,type ,parent)))
        (pi-insert-section ,s
@@ -149,7 +149,7 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
 
 (defmacro pi-create-or-replace-section (section type parent &rest body)
   (declare (indent 3)
-           (debug (symbolp body)))
+           (debug (symbolp symbolp symbolp body)))
   `(if ,section
        (pi-replace-section ,section ,@body)
      (pi-create-section ,type ,parent ,@body)))
@@ -345,7 +345,7 @@ corresponding body return a non-nil value, it is returned,
 otherwise it return t."
 
   (declare (indent 1)
-           (debug (form &rest (sexp body))))
+           (debug (&rest (sexp body))))
   (let ((section (make-symbol "*section*"))
         (path (make-symbol "*path*")))
     `(let* ((,section (pi-current-section))

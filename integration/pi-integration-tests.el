@@ -9,6 +9,12 @@
 ;; development only packages, not declared as a package-dependency
 (package-initialize)
 
+(require 'undercover)
+(undercover "*.el"
+            (:report-format 'codecov)
+            (:send-report nil)
+            (:exclude "*-tests.el"))
+
 (require 'pi)
 
 (defun pi-project-try-project (dir)
@@ -61,7 +67,7 @@
            (write-region current-text nil tape-file nil 'silent))))
      (pi-quit-chat)))
 
-(defvar pi-settle-time (if (getenv "CI") 0.5 0.1))
+(defvar pi-settle-time (if (getenv "CI") 1 0.1))
 (defvar pi-poll-interval (if (getenv "CI") 0.5 0.05))
 
 (defun pi-drain-process-output (&optional timeout)

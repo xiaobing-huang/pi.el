@@ -9,6 +9,12 @@
 ;; development only packages, not declared as a package-dependency
 (package-initialize)
 
+(require 'undercover)
+(undercover "*.el"
+            (:report-format 'codecov)
+            (:send-report nil)
+            (:exclude "*-tests.el"))
+
 (require 'pi)
 
 (ert-deftest pi-parse-slash-command ()

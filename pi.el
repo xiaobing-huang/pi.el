@@ -524,7 +524,7 @@ PRED is called with KEY VALUE."
 
 (defmacro pi-widget-save-excursion (&rest body)
   "Insert content before PROMPT-WIDGET and restore focus afterward."
-  (declare (indent 0) (debug t))
+  (declare (indent 0))
   `(let* ((inhibit-read-only t)
           (window (get-buffer-window (current-buffer) t))
           (follow-p
@@ -540,7 +540,7 @@ PRED is called with KEY VALUE."
 
 (defmacro pi-with-chat-buffer (&rest body)
   "Execute the body in the current chat buffer."
-  (declare (indent 0) (debug t))
+  (declare (indent 0))
   `(let ((buffer (pi-current-chat)))
      (if buffer
          (with-current-buffer buffer

@@ -7,13 +7,24 @@
 ;; development only packages, not declared as a package-dependency
 (package-initialize)
 
+(require 'undercover)
+(undercover "*.el"
+            (:report-format 'codecov)
+            (:send-report nil)
+            (:exclude "*-tests.el"))
+
 (require 'pi-section)
 (setq pi-section-padding "")
 
-(defmacro pi-section-tests-with-demo-buffer (&rest body)
+(defmacro pi-with-root-section (&rest body)
   (declare (indent 0))
   `(with-temp-buffer
      (pi-create-root-section)
+     ,@body))
+
+(defmacro pi-section-tests-with-demo-buffer (&rest body)
+  (declare (indent 0))
+  `(pi-with-root-section
      (let* ((build (pi-new-section 'build pi-root-section))
             (compile (pi-new-section 'compile build))
             (tests (pi-new-section 'test build))
@@ -63,38 +74,34 @@
 ;; ─── Basic section creation ────────────────────────────────────────────
 
 (ert-deftest pi-section-create-root ()
-  (with-temp-buffer
-    (let ((root (pi-create-root-section)))
-      (should (pi-section-p root))
-      (should (eq (pi-section-type root) 'root))
-      (should (null (pi-section-parent root)))
-      (should (null (pi-section-children root)))
-      (should (= (pi-section-beginning root) (point-min)))
-      (should (= (pi-section-end root) (point-min))))))
+  (pi-with-root-section
+    (should (pi-section-p pi-root-section))
+    (should (eq (pi-section-type pi-root-section) 'root))
+    (should (null (pi-section-parent pi-root-section)))
+    (should (null (pi-section-children pi-root-section)))
+    (should (= (pi-section-beginning pi-root-section) (point-min)))
+    (should (= (pi-section-end pi-root-section) (point-min)))))
 
 (ert-deftest pi-section-new-child ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (child (pi-new-section 'child root)))
+  (pi-with-root-section
+    (let ((child (pi-new-section 'child pi-root-section)))
       (should (pi-section-p child))
       (should (eq (pi-section-type child) 'child))
-      (should (eq (pi-section-parent child) root))
-      (should (memq child (pi-section-children root))))))
+      (should (eq (pi-section-parent child) pi-root-section))
+      (should (memq child (pi-section-children pi-root-section))))))
 
 (ert-deftest pi-section-new-nested-children ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (build (pi-new-section 'build root))
-           (compile (pi-new-section 'compile build)))
+  (pi-with-root-section
+    (let* ((build (pi-new-section 'build pi-root-section))
+          (compile (pi-new-section 'compile build)))
       (should (eq (pi-section-parent compile) build))
       (should (memq compile (pi-section-children build)))
-      (should (eq (pi-section-parent build) root))
-      (should (memq build (pi-section-children root))))))
+      (should (eq (pi-section-parent build) pi-root-section))
+      (should (memq build (pi-section-children pi-root-section))))))
 
 (ert-deftest pi-section-default-hidden ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (child (pi-new-section 'child root)))
+  (pi-with-root-section
+    (let ((child (pi-new-section 'child pi-root-section)))
       (should (equal (pi-section-hidden child) pi-section-hidden-default))
       (should (null (pi-section-hidden child))))))
 
@@ -102,9 +109,8 @@
 ;; ─── pi-insert-section ─────────────────────────────────────────────────
 
 (ert-deftest pi-section-insert-sets-beginning-and-end ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (build (pi-new-section 'build root)))
+  (pi-with-root-section
+    (let ((build (pi-new-section 'build pi-root-section)))
       (pi-insert-section build
         (insert "[-] Build\n"))
       (should (< (pi-section-beginning build) (pi-section-end build)))
@@ -112,33 +118,30 @@
       (should (= (pi-section-end build) 11)))))
 
 (ert-deftest pi-section-insert-propertizes-text ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (build (pi-new-section 'build root)))
+  (pi-with-root-section
+    (let ((build (pi-new-section 'build pi-root-section)))
       (pi-insert-section build
         (insert "[-] Build\n"))
       (goto-char 1)
       (should (eq (get-text-property (point) 'pi-section) build)))))
 
 (ert-deftest pi-section-insert-updates-parent-end ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (build (pi-new-section 'build root))
-           (compile (pi-new-section 'compile build)))
+  (pi-with-root-section
+    (let* ((build (pi-new-section 'build pi-root-section))
+          (compile (pi-new-section 'compile build)))
       (pi-insert-section build
         (insert "[-] Build\n"))
       (pi-insert-section compile
         (insert "  [-] Compile\n"))
       (should (>= (pi-section-end build) (pi-section-end compile)))
-      (should (>= (pi-section-end root) (pi-section-end build))))))
+      (should (>= (pi-section-end pi-root-section) (pi-section-end build))))))
 
 
 ;; ─── pi-append-section ─────────────────────────────────────────────────
 
 (ert-deftest pi-section-append-extends-existing ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (log (pi-new-section 'log root)))
+  (pi-with-root-section
+    (let ((log (pi-new-section 'log pi-root-section)))
       (pi-insert-section log
         (insert "[-] Log\n"))
       (let ((original-end (pi-section-end log)))
@@ -147,9 +150,8 @@
         (should (> (pi-section-end log) original-end))))))
 
 (ert-deftest pi-section-append-adds-text-properties ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (log (pi-new-section 'log root)))
+  (pi-with-root-section
+    (let ((log (pi-new-section 'log pi-root-section)))
       (pi-insert-section log
         (insert "[-] Log\n"))
       (pi-append-section log
@@ -406,9 +408,8 @@
 ;; ─── pi-update-section-end ─────────────────────────────────────────────
 
 (ert-deftest pi-update-section-end-expands ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (child (pi-new-section 'child root)))
+  (pi-with-root-section
+    (let ((child (pi-new-section 'child pi-root-section)))
       (pi-insert-section child
         (insert "  [-] Compile\n")
         (insert "      Compiling foo.c\n")
@@ -421,26 +422,24 @@
         (should (= (pi-section-end child) 10))))))
 
 (ert-deftest pi-update-section-end-propagates-to-parent ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (child (pi-new-section 'child root)))
+  (pi-with-root-section
+    (let ((child (pi-new-section 'child pi-root-section)))
       (pi-insert-section child
         (insert "  [-] Compile\n")
         (insert "      Compiling foo.c\n")
         (insert "      Compiling bar.c\n"))
       (setf (pi-section-beginning child) (set-marker (make-marker) 1))
       (setf (pi-section-end child) (set-marker (make-marker) 5))
-      (setf (pi-section-beginning root) (set-marker (make-marker) 1))
-      (setf (pi-section-end root) (set-marker (make-marker) 5))
+      (setf (pi-section-beginning pi-root-section) (set-marker (make-marker) 1))
+      (setf (pi-section-end pi-root-section) (set-marker (make-marker) 5))
       (let ((m (make-marker)))
         (set-marker m 20)
         (pi-update-section-end child m)
-        (should (= (pi-section-end root) 20))))))
+        (should (= (pi-section-end pi-root-section) 20))))))
 
 (ert-deftest pi-update-section-end-does-not-shrink ()
-  (with-temp-buffer
-    (let* ((root (pi-create-root-section))
-           (child (pi-new-section 'child root)))
+  (pi-with-root-section
+    (let ((child (pi-new-section 'child pi-root-section)))
       (pi-insert-section child
         (insert "  [-] Compile\n")
         (insert "      Compiling foo.c\n")

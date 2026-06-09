@@ -5,3 +5,6 @@
 (source melpa-stable)
 
 (package-file "pi.el")
+
+(development
+ (depends-on "undercover"))
