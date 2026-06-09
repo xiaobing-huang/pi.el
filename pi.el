@@ -646,7 +646,8 @@ PRED is called with KEY VALUE."
           (pi-maybe-log-rpc "output" (buffer-substring-no-properties raw-start (point))))
         (delete-region (point-min) (point))
         (when response
-          (pi-dispatch response)))
+          (ignore-error quit
+            (pi-dispatch response))))
       (when (>= (buffer-size) 16)
         (pi-decode-response process)))))
 
