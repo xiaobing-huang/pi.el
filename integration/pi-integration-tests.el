@@ -35,37 +35,47 @@
 (defconst pi-project-directory (expand-file-name "project" pi-integration-directory))
 (defconst pi-project-agent-directory (expand-file-name "project/agent" pi-integration-directory))
 
+(defun pi-fixture-mode ()
+  (or (getenv "FIXTURE_MODE") "replay"))
+
 (defmacro pi-with-integration-project (scenario &rest body)
   (declare (indent 1))
   `(let* ((default-directory pi-project-directory)
           (pi-process-environment (list
                                    (concat "FIXTURE_SCENARIO=" ,scenario)
                                    (concat "PI_CODING_AGENT_DIR=" pi-project-agent-directory)
-                                   "FIXTURE_MODE=replay"))
+                                   (concat "FIXTURE_MODE=" (pi-fixture-mode))))
           (pi-flags (list "--tools" "read,bash,edit,write,grep,find,ls" "--extension" (expand-file-name "fixture" pi-integration-directory))))
+     (let ((sessions-dir (expand-file-name "sessions" pi-project-agent-directory)))
+       (when (file-exists-p sessions-dir)
+         (delete-directory sessions-dir t)
+         (make-directory sessions-dir)))
      (pi-chat)
      (sleep-for 2)
      ,@body
      (pi-drain-process-output)
      (pi-with-chat-buffer
        (let* ((tape-file (expand-file-name (concat ,scenario ".txt") pi-tape-directory))
-              (current-text (pi-normalize-buffer-text (buffer-substring (point-min) (point-max)))))
-         (if (file-exists-p tape-file)
-             (let ((expected (pi-normalize-buffer-text
-                              (with-temp-buffer
-                                (insert-file-contents tape-file)
-                                (buffer-string)))))
-               (unless (string= current-text expected)
-                 (let ((temp-file (make-temp-file "pi-tape-")))
-                   (unwind-protect
-                       (progn
-                         (write-region current-text nil temp-file nil 'silent)
-                         (with-temp-buffer
-                           (call-process "diff" nil (current-buffer) nil "-u" tape-file temp-file)
-                           (message "Tape mismatch for %s:\n%s" ,scenario (buffer-string))
-                           (ert-fail (format "Tape mismatch for %s" ,scenario))))
-                     (delete-file temp-file)))))
-           (write-region current-text nil tape-file nil 'silent))))
+              (current-text (pi-normalize-buffer-text (buffer-substring (point-min) (point-max))))
+              (fixture-mode (pi-fixture-mode)))
+         (if (or (not (file-exists-p tape-file))
+                 (string= fixture-mode "record"))
+             (write-region current-text nil tape-file nil 'silent)
+           (let ((expected (pi-normalize-buffer-text
+                            (with-temp-buffer
+                              (insert-file-contents tape-file)
+                              (buffer-string)))))
+             (unless (string= current-text expected)
+               (let ((temp-file (make-temp-file "pi-tape-")))
+                 (unwind-protect
+                     (progn
+                       (write-region current-text nil temp-file nil 'silent)
+                       (with-temp-buffer
+                         (call-process "diff" nil (current-buffer) nil "-u" tape-file temp-file)
+                         (message "Tape mismatch for %s:\n%s" ,scenario (buffer-string))
+                         (ert-fail (format "Tape mismatch for %s" ,scenario))))
+                   (delete-file temp-file))))))))
+
      (pi-quit-chat)))
 
 (defvar pi-settle-time (if (getenv "CI") 1 0.1))
@@ -115,7 +125,8 @@
     (pi-send-prompt-and-wait "read utils.py file")
     (pi-send-prompt-and-wait "create test.txt with some text")
     (pi-send-prompt-and-wait "remove the 3rd line using edit tool")
-    (pi-send-prompt-and-wait "delete text.txt")))
+    (pi-send-prompt-and-wait "delete text.txt")
+    (pi-send-prompt-and-wait "/export /tmp/pi-session.html")))
 
 (ert-deftest pi-slash ()
   (pi-with-integration-project "slash"
@@ -141,5 +152,20 @@
       (pi-send-prompt-and-wait "/set-steering-mode"))
     (pi-with-minibuffer-input "All"
       (pi-send-prompt-and-wait "/set-follow-up-mode"))))
+
+(ert-deftest pi-session ()
+  (pi-with-integration-project "session"
+    (pi-send-prompt-and-wait "/new")
+    (pi-send-prompt-and-wait "/name test-session")
+    (pi-send-prompt-and-wait "/session")
+    (pi-send-prompt-and-wait "say hello")
+    (pi-send-prompt-and-wait "/session")))
+
+(ert-deftest pi-clone ()
+  (pi-with-integration-project "clone"
+    (pi-send-prompt-and-wait "say hello")
+    (pi-send-prompt-and-wait "/session")
+    (pi-send-prompt-and-wait "/clone")
+    (pi-send-prompt-and-wait "cloned")))
 
 ;;; pi-tests.el ends here

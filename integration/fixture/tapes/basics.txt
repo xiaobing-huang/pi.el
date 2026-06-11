@@ -242,5 +242,7 @@ assistant> The file test.txt has been deleted successfully. Let me inform the us
 
 assistant> File `test.txt` has been deleted successfully.
 
+Session exported to: /tmp/pi-session.html
+
 ​user> 
 ​​

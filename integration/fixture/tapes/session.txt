@@ -1,0 +1,52 @@
+Session renamed to: test-session
+
+Session Info
+ File: PROJECT_DIR/agent/sessions/SESSION_DIR/TIMESTAMP_UUID.jsonl
+ ID: UUID
+
+Messages
+ User: 0
+ Assistant: 0
+ Tool Calls: 0
+ Tool Results: 0
+ Total: 0
+
+Tokens
+ Input: 0
+ Output: 0
+ Cache Read: 0
+ Total: 0
+
+Cost
+ Total: 0.0000
+
+
+user> say hello
+
+assistant> The user is asking me to "say hello". This is a simple greeting request that doesn't require any tools. I should respond with a friendly hello.
+
+assistant> Hello! How can I help you today?
+
+Session Info
+ File: PROJECT_DIR/agent/sessions/SESSION_DIR/TIMESTAMP_UUID.jsonl
+ ID: UUID
+
+Messages
+ User: 1
+ Assistant: 1
+ Tool Calls: 0
+ Tool Results: 0
+ Total: 2
+
+Tokens
+ Input: 1520
+ Output: 44
+ Cache Read: 0
+ Total: 1564
+
+Cost
+ Total: 0.0000
+
+
+​user> 
+​​
