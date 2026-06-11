@@ -2350,7 +2350,10 @@ With a prefix argument, visit in other window."
   (interactive)
   (if-let* ((chat-buffer (pi-current-chat))
             (chat-window (get-buffer-window chat-buffer t)))
-      (delete-window chat-window)
+      (with-selected-window chat-window
+        (if (one-window-p)
+            (bury-buffer)
+          (delete-window chat-window)))
     (pi-chat)))
 
 (defun pi-quit-chat ()
