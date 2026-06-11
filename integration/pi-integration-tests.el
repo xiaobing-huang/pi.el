@@ -195,4 +195,20 @@
     (pi-send-prompt-and-wait "/compact")
     (pi-send-prompt-and-wait "hello again")))
 
+(ert-deftest pi-followup ()
+  (pi-with-integration-project "followup"
+    (pi-send-prompt "hello")
+    (pi-send-prompt "follow up 1")
+    (pi-send-prompt "follow up 2")
+    (pi-drain-process-output)
+    (pi-send-prompt-and-wait "hello again")))
+
+(ert-deftest pi-steer ()
+  (pi-with-integration-project "steer"
+    (pi-send-prompt "hello")
+    (pi-send-prompt-alternate "hello 1")
+    (pi-send-prompt-alternate "hello 2")
+    (pi-drain-process-output)
+    (pi-send-prompt-and-wait "hello again")))
+
 ;;; pi-tests.el ends here
