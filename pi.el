@@ -1774,11 +1774,11 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
 
 (defvar pi-thinking-level-descriptions
   '((:off     . "No reasoning")
-    (:minimal . "Very brief reasoning (~1k tokens)")
-    (:low     . "Light reasoning (~2k tokens)")
-    (:medium  . "Moderate reasoning (~8k tokens)")
-    (:high    . "Deep reasoning (~16k tokens)")
-    (:xhigh   . "Maximum reasoning (~32k tokens)")))
+    (:minimal . "Very brief reasoning ~1k tokens")
+    (:low     . "Light reasoning ~2k tokens")
+    (:medium  . "Moderate reasoning ~8k tokens")
+    (:high    . "Deep reasoning ~16k tokens")
+    (:xhigh   . "Maximum reasoning ~32k tokens")))
 
 (defvar pi-prompt-modes
   '((:one-at-a-time . "One at a time")
@@ -1841,7 +1841,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                              (desc (alist-get level pi-thinking-level-descriptions)))
                         (cons level
                               (if desc
-                                  (format "%s — %s" name desc)
+                                  (format "%s (%s)" name desc)
                                 name))))
                     supported-levels))
                   (choice (pi-read-option options current-level "Set thinking level")))

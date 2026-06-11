@@ -51,9 +51,10 @@
        (let* ((tape-file (expand-file-name (concat ,scenario ".txt") pi-tape-directory))
               (current-text (pi-normalize-buffer-text (buffer-substring (point-min) (point-max)))))
          (if (file-exists-p tape-file)
-             (let ((expected (pi-normalize-buffer-text (with-temp-buffer
-                               (insert-file-contents tape-file)
-                               (buffer-string)))))
+             (let ((expected (pi-normalize-buffer-text
+                              (with-temp-buffer
+                                (insert-file-contents tape-file)
+                                (buffer-string)))))
                (unless (string= current-text expected)
                  (let ((temp-file (make-temp-file "pi-tape-")))
                    (unwind-protect
@@ -83,11 +84,26 @@
     (sleep-for pi-settle-time)))
 
 (defun pi-normalize-buffer-text (text)
-  (replace-regexp-in-string (regexp-quote pi-project-directory) "PROJECT_DIR" text))
+  (let ((session_dir (concat "--" (replace-regexp-in-string "/" "-"
+                                                            (substring pi-project-directory 1))
+                             "--")))
+    (->> text
+         (replace-regexp-in-string (regexp-quote pi-project-directory) "PROJECT_DIR")
+         (replace-regexp-in-string (regexp-quote session_dir) "SESSION_DIR")
+         (replace-regexp-in-string "\\b[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}" "UUID")
+         (replace-regexp-in-string "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}T[0-9]\\{2\\}-[0-9]\\{2\\}-[0-9]\\{2\\}-[0-9]\\{3\\}Z" "TIMESTAMP"))))
 
 (defun pi-send-prompt-and-wait (prompt)
   (pi-send-prompt prompt)
   (pi-drain-process-output))
+
+(defmacro pi-with-minibuffer-input (input &rest body)
+  (declare (indent 1))
+  `(let ((executing-kbd-macro t)
+         (unread-command-events
+          (append (listify-key-sequence ,input)
+                  unread-command-events)))
+     ,@body))
 
 (ert-deftest pi-basics ()
   (pi-with-integration-project "basics"
@@ -100,5 +116,30 @@
     (pi-send-prompt-and-wait "create test.txt with some text")
     (pi-send-prompt-and-wait "remove the 3rd line using edit tool")
     (pi-send-prompt-and-wait "delete text.txt")))
+
+(ert-deftest pi-slash ()
+  (pi-with-integration-project "slash"
+    (pi-send-prompt-and-wait "/new")
+    (pi-send-prompt-and-wait "/name session1")
+    (pi-send-prompt-and-wait "/session")
+    (pi-send-prompt-and-wait "hello")
+    (pi-send-prompt-and-wait "/copy")
+    (pi-with-minibuffer-input "n"
+      (pi-send-prompt-and-wait "/set-auto-compaction"))
+    (pi-with-minibuffer-input "y"
+      (pi-send-prompt-and-wait "/set-auto-compaction"))
+    (pi-with-minibuffer-input "(fixture) qwen3.5:4b"
+      (pi-send-prompt-and-wait "/model"))
+    (pi-with-minibuffer-input "minimal (Very brief reasoning ~1k tokens)"
+      (pi-send-prompt-and-wait "/set-thinking-level"))
+    (pi-send-prompt-and-wait "/cycle-thinking-level")
+    (pi-with-minibuffer-input "n"
+      (pi-send-prompt-and-wait "/set-auto-retry"))
+    (pi-with-minibuffer-input "y"
+      (pi-send-prompt-and-wait "/set-auto-retry"))
+    (pi-with-minibuffer-input "One at a time"
+      (pi-send-prompt-and-wait "/set-steering-mode"))
+    (pi-with-minibuffer-input "All"
+      (pi-send-prompt-and-wait "/set-follow-up-mode"))))
 
 ;;; pi-tests.el ends here

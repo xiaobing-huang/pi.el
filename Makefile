@@ -1,6 +1,8 @@
 export EMACS ?= $(shell command -v emacs 2>/dev/null)
 CASK_DIR := $(shell cask package-directory)
 
+MATCH ?=
+
 $(CASK_DIR): Cask
 	cask install
 	@touch $(CASK_DIR)
@@ -16,15 +18,15 @@ compile: cask
 
 .PHONY: test
 test: compile
-	cask emacs --batch -L . -L test -l pi-tests.el -l pi-section-tests.el -f ert-run-tests-batch-and-exit
+	cask emacs --batch -L . -L test -l pi-tests.el -l pi-section-tests.el -eval '(ert-run-tests-batch-and-exit "$(MATCH)")'
 
 .PHONY: integration
 integration: compile
-	cask emacs --batch -L . -L test -l integration/pi-integration-tests.el -f ert-run-tests-batch-and-exit
+	cask emacs --batch -L . -L test -l integration/pi-integration-tests.el -eval '(ert-run-tests-batch-and-exit "$(MATCH)")'
 
 .PHONY: format
 format:
-	cask emacs --batch -L . -l pi.el -l pi-section.el -l pi-edit.el -l pi-tests.el -l pi-section-tests.el \
+	cask emacs --batch -L . -l pi.el -l pi-section.el -l pi-edit.el -l pi-tests.el -l pi-section-tests.el -l integration/pi-integration-tests.el \
 	  --eval " \
 	  (progn \
             (setq-default indent-tabs-mode nil) \
@@ -33,7 +35,7 @@ format:
                 (message \"formatting %s\" f) \
 	        (indent-region (point-min) (point-max)) \
 	        (save-buffer))))" \
-          pi.el pi-section.el pi-edit.el pi-tests.el pi-section-tests.el
+          pi.el pi-section.el pi-edit.el pi-tests.el pi-section-tests.el integration/pi-integration-tests.el
 
 
 .PHONY: sandbox

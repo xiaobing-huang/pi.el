@@ -1,0 +1,49 @@
+Session renamed to: session1
+
+Session Info
+ File: PROJECT_DIR/agent/sessions/SESSION_DIR/TIMESTAMP_UUID.jsonl
+ ID: UUID
+
+Messages
+ User: 0
+ Assistant: 0
+ Tool Calls: 0
+ Tool Results: 0
+ Total: 0
+
+Tokens
+ Input: 0
+ Output: 0
+ Cache Read: 0
+ Total: 0
+
+Cost
+ Total: 0.0000
+
+
+user> hello
+
+assistant> The user is just saying "hello" which is a simple greeting. I should respond with a friendly greeting and let them know I'm here to help.
+
+assistant> Hello! How can I help you today?
+
+Compaction set to: manual
+
+Compaction set to: auto
+
+Switched to model: (fixture) qwen3.5:4b
+
+Thinking level set to: minimal
+
+Cycled thinking level to: low
+
+Auto retry set to: disabled
+
+Auto retry set to: enabled
+
+Steering mode set to: One at a time
+
+Follow-up mode set to: All
+
+​user> 
+​​

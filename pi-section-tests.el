@@ -93,7 +93,7 @@
 (ert-deftest pi-section-new-nested-children ()
   (pi-with-root-section
     (let* ((build (pi-new-section 'build pi-root-section))
-          (compile (pi-new-section 'compile build)))
+           (compile (pi-new-section 'compile build)))
       (should (eq (pi-section-parent compile) build))
       (should (memq compile (pi-section-children build)))
       (should (eq (pi-section-parent build) pi-root-section))
@@ -128,7 +128,7 @@
 (ert-deftest pi-section-insert-updates-parent-end ()
   (pi-with-root-section
     (let* ((build (pi-new-section 'build pi-root-section))
-          (compile (pi-new-section 'compile build)))
+           (compile (pi-new-section 'compile build)))
       (pi-insert-section build
         (insert "[-] Build\n"))
       (pi-insert-section compile

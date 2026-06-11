@@ -1,3 +1,14 @@
 {
-  "lastChangelogVersion": "0.78.0"
+  "lastChangelogVersion": "0.78.0",
+  "defaultThinkingLevel": "low",
+  "compaction": {
+    "enabled": true
+  },
+  "defaultProvider": "fixture",
+  "defaultModel": "qwen3.5:4b",
+  "retry": {
+    "enabled": true
+  },
+  "steeringMode": "one-at-a-time",
+  "followUpMode": "all"
 }
