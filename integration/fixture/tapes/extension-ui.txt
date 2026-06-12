@@ -1,0 +1,70 @@
+Info notification
+
+Warning notification
+
+Error notification
+
+Enter a value:
+type something...
+
+Input result: test value
+
+Continue?:
+Do you want to proceed?
+
+Confirmed: true
+
+Continue?:
+Do you want to proceed?
+
+Confirmed: false
+
+Continue?:
+Do you want to proceed?
+
+Confirmed: false
+
+Pick an option:
+  • Option A
+  • Option B
+  • Option C
+
+Selected: Option B
+
+Pick an option:
+  • Option A
+  • Option B
+  • Option C
+
+Selected: cancelled
+
+Editor text set
+
+user> hello from extension
+
+assistant> The user is saying they said hello from "extension". They have a chat tool available, which I assume is a chat extension for me. This is a friendly greeting, so I should respond warmly and ask how they need help today.
+
+assistant> Hello! It looks like I received a message from the chat extension. Is there anything I can help you with today?
+
+Edit some text:
+
+Editor result: prefilled text
+new line
+
+Edit some text:
+
+Editor result: cancelled
+
+Widget set
+
+Status set
+
+Title set
+
+Widget line 1
+Widget line 2
+user> 
+Widget line 3
+Widget line 4
+Status A value
+Status B value

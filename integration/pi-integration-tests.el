@@ -93,6 +93,16 @@
           (accept-process-output nil pi-poll-interval))))
     (sleep-for pi-settle-time)))
 
+(defmacro pi-with-editor-buffer (&rest body)
+  (declare (indent 0))
+  `(progn
+     (pi-drain-process-output)
+     (let ((buffer (get-buffer "*pi-edit*")))
+       (when buffer
+         (with-current-buffer buffer
+           ,@body)))
+     (pi-drain-process-output)))
+
 (defun pi-normalize-buffer-text (text)
   (let ((session_dir (concat "--" (replace-regexp-in-string "/" "-"
                                                             (substring pi-project-directory 1))
@@ -220,5 +230,47 @@
             (end (point-max)))
         (pi-insert-region start end)))
     (pi-send-prompt-and-wait (widget-value pi-prompt-widget))))
+
+(ert-deftest pi-extension-ui ()
+  (pi-with-integration-project "extension-ui"
+    (pi-send-prompt-and-wait "/rpc-notify")
+
+    (pi-with-minibuffer-input "test value"
+      (pi-send-prompt-and-wait "/rpc-input"))
+
+    (pi-with-minibuffer-input "y"
+      (pi-send-prompt-and-wait "/rpc-confirm"))
+
+    (pi-with-minibuffer-input "n"
+      (pi-send-prompt-and-wait "/rpc-confirm"))
+
+    (pi-with-minibuffer-input (kbd "C-g")
+      (pi-send-prompt-and-wait "/rpc-confirm"))
+
+    (pi-with-minibuffer-input "Option B"
+      (pi-send-prompt-and-wait "/rpc-select"))
+
+    (pi-with-minibuffer-input (kbd "C-g")
+      (pi-send-prompt-and-wait "/rpc-select"))
+
+    (pi-send-prompt-and-wait "/rpc-set-editor-text")
+
+    (pi-send-prompt-and-wait (widget-value pi-prompt-widget))
+
+    (pi-send-prompt "/rpc-editor")
+    (pi-with-editor-buffer
+      (goto-char (point-max))
+      (insert "\nnew line")
+      (pi-edit-finish))
+
+    (pi-send-prompt "/rpc-editor")
+    (pi-with-editor-buffer
+      (pi-edit-cancel))
+
+    (pi-send-prompt-and-wait "/rpc-set-widget")
+
+    (pi-send-prompt-and-wait "/rpc-set-status")
+
+    (pi-send-prompt-and-wait "/rpc-set-title")))
 
 ;;; pi-tests.el ends here

@@ -62,6 +62,90 @@ export default function (pi: ExtensionAPI) {
     });
   });
 
+  pi.registerCommand("rpc-input", {
+    description: "Prompt for text input (ctx.ui.input)",
+    handler: async (_args, ctx) => {
+      const value = await ctx.ui.input("Enter a value", "type something...");
+      ctx.ui.notify(`Input result: ${value ?? "cancelled"}`, "info");
+    },
+  });
+
+  pi.registerCommand("rpc-confirm", {
+    description: "Prompt for confirmation (ctx.ui.confirm)",
+    handler: async (_args, ctx) => {
+      const confirmed = await ctx.ui.confirm(
+        "Continue?",
+        "Do you want to proceed?",
+      );
+      ctx.ui.notify(`Confirmed: ${confirmed}`, "info");
+    },
+  });
+
+  pi.registerCommand("rpc-select", {
+    description: "Prompt for selection (ctx.ui.select)",
+    handler: async (_args, ctx) => {
+      const value = await ctx.ui.select("Pick an option", [
+        "Option A",
+        "Option B",
+        "Option C",
+      ]);
+      ctx.ui.notify(`Selected: ${value ?? "cancelled"}`, "info");
+    },
+  });
+
+  pi.registerCommand("rpc-notify", {
+    description: "Send notifications (ctx.ui.notify)",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify("Info notification", "info");
+      ctx.ui.notify("Warning notification", "warning");
+      ctx.ui.notify("Error notification", "error");
+    },
+  });
+
+  pi.registerCommand("rpc-editor", {
+    description: "Open editor (ctx.ui.editor)",
+    handler: async (_args, ctx) => {
+      const value = await ctx.ui.editor("Edit some text", "prefilled text");
+      ctx.ui.notify(`Editor result: ${value ?? "cancelled"}`, "info");
+    },
+  });
+
+  pi.registerCommand("rpc-set-editor-text", {
+    description: "Set editor text (ctx.ui.setEditorText)",
+    handler: async (_args, ctx) => {
+      ctx.ui.setEditorText("hello from extension");
+      ctx.ui.notify("Editor text set", "info");
+    },
+  });
+
+  pi.registerCommand("rpc-set-widget", {
+    description: "Set widgets above and below editor (ctx.ui.setWidget)",
+    handler: async (_args, ctx) => {
+      ctx.ui.setWidget("rpc-widget-above", ["Widget line 1", "Widget line 2"]);
+      ctx.ui.setWidget("rpc-widget-below", ["Widget line 3", "Widget line 4"], {
+        placement: "belowEditor",
+      });
+      ctx.ui.notify("Widget set", "info");
+    },
+  });
+
+  pi.registerCommand("rpc-set-status", {
+    description: "Set status (ctx.ui.setStatus)",
+    handler: async (_args, ctx) => {
+      ctx.ui.setStatus("rpc-status-a", "Status A value");
+      ctx.ui.setStatus("rpc-status-b", "Status B value");
+      ctx.ui.notify("Status set", "info");
+    },
+  });
+
+  pi.registerCommand("rpc-set-title", {
+    description: "Set title (ctx.ui.setTitle)",
+    handler: async (_args, ctx) => {
+      ctx.ui.setTitle("Custom Title");
+      ctx.ui.notify("Title set", "info");
+    },
+  });
+
   pi.registerProvider("fixture", {
     api: "openai-completions",
     baseUrl: "http://127.0.0.1:5544/v1",
