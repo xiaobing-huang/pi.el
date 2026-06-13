@@ -57,6 +57,7 @@ define ESCRIPT
 (with-temp-buffer
   (require 'pp)
   (require 'subr-x)
+  (insert-file-contents "pi-section.el")
   (insert-file-contents "pi.el")
   (while
       (ignore-errors

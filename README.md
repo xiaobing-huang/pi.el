@@ -253,3 +253,17 @@ Alist mapping custom message types to inserter functions.
 Each entry is (CUSTOM-TYPE . FUNCTION) where FUNCTION is called
 with the message plist to insert the custom message content.
 
+#### pi-section-autohide-count `2`
+
+Automatically hide older sections in the chat buffer, keeping only the
+last N sections visible.  This helps reduce clutter by collapsing
+earlier responses when the conversation grows long.
+
+When nil, auto hiding is disabled and no sections are hidden
+automatically.
+
+#### pi-section-padding `"\n\n"`
+
+String inserted between sections to control the visual gap.
+Increase or decrease this value to adjust spacing between sections.
+

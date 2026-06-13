@@ -26,6 +26,17 @@
 
 ;;; Code:
 
+(defcustom pi-section-autohide-count 2
+  "Automatically hide older sections in the chat buffer, keeping only the
+last N sections visible.  This helps reduce clutter by collapsing
+earlier responses when the conversation grows long.
+
+When nil, auto hiding is disabled and no sections are hidden
+automatically."
+  :type '(choice (const :tag "Disable" nil)
+                 integer)
+  :group 'pi)
+
 (defcustom pi-section-padding "\n\n"
   "String inserted between sections to control the visual gap.
 Increase or decrease this value to adjust spacing between sections."
@@ -135,6 +146,8 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
        (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
        (pi-update-section-end ,s (point-marker))
        (pi-propertize-section ,s)
+       (when (pi-section-hidden ,s)
+         (pi-section-set-hidden ,s t))
        ,s)))
 
 (defun pi-delete-section (section)
@@ -322,6 +335,15 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
     (when (pi-section-parent section)
       (goto-char (pi-section-beginning section))
       (pi-section-set-hidden section (not (pi-section-hidden section))))))
+
+(defun pi-section-autohide ()
+  (interactive)
+  (when-let* ((count pi-section-autohide-count)
+              (children (pi-section-children pi-root-section)))
+    (let ((hide-count (max 0 (- (length children) count))))
+      (dolist (child (seq-take children hide-count))
+        (unless (pi-section-hidden child)
+          (pi-section-set-hidden child t))))))
 
 (defun pi-section-show-level-1-all ()
   "Collapse all the sections in the pi status buffer."

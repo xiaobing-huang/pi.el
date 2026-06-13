@@ -530,6 +530,11 @@ PRED is called with KEY VALUE."
    pi-project-key
    (md5 (pi-project-root))))
 
+(defun pi-recenter-chat ()
+  (when-let (window (get-buffer-window (current-buffer) t))
+    (with-selected-window window
+      (recenter (- -1 scroll-margin (pi-extra-widget-lines))))))
+
 (defmacro pi-widget-save-excursion (&rest body)
   "Insert content before PROMPT-WIDGET and restore focus afterward."
   (declare (indent 0))
@@ -543,8 +548,7 @@ PRED is called with KEY VALUE."
        (goto-char (widget-get pi-prompt-widget :from))
        ,@body)
      (when follow-p
-       (with-selected-window window
-         (recenter (- -1 scroll-margin (pi-extra-widget-lines)))))))
+       (pi-recenter-chat))))
 
 (defmacro pi-with-chat-buffer (&rest body)
   "Execute the body in the current chat buffer."
@@ -805,6 +809,15 @@ PRED is called with KEY VALUE."
 (defun pi-insert-role-prefix (role)
   (insert (propertize (format "%s> " role) 'face 'pi-chat-role-face)))
 
+(defun pi-fill-string (string)
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (while (not (eobp))
+      (fill-region (point) (line-end-position))
+      (forward-line 1))
+    (buffer-string)))
+
 (defun pi-insert-thinking (text)
   (insert (propertize text 'face 'pi-thinking-face)))
 
@@ -847,7 +860,7 @@ PRED is called with KEY VALUE."
          (pi-widget-save-excursion
            (pi-create-section 'thinking pi-root-section
              (pi-insert-role-prefix "assistant")
-             (pi-insert-thinking thinking-text))))
+             (pi-insert-thinking (pi-fill-string thinking-text)))))
        (unless (string-empty-p text)
          (pi-widget-save-excursion
            (pi-create-section 'text pi-root-section
@@ -967,7 +980,7 @@ PRED is called with KEY VALUE."
         (pi-widget-save-excursion
           (pi-create-or-replace-section pi-thinking-section 'thinking pi-root-section
             (pi-insert-role-prefix role)
-            (pi-insert-thinking thinking-text))))
+            (pi-insert-thinking (pi-fill-string thinking-text)))))
 
       (unless (string-empty-p text)
         (pi-widget-save-excursion
@@ -1588,7 +1601,13 @@ PRED is called with KEY VALUE."
     (when pi-spinner
       (spinner-stop pi-spinner)
       (setq pi-spinner nil)))
+  (when (string-suffix-p "_end" (plist-get event :type))
+    (pi-autohide-sections))
   (pi-update-header-line))
+
+(defun pi-autohide-sections ()
+  (pi-section-autohide)
+  (pi-recenter-chat))
 
 (defun pi-cleanup-chat-buffer ()
   (let ((project-key (pi-project-key)))
@@ -1633,7 +1652,8 @@ PRED is called with KEY VALUE."
   (unless (and (> (ring-length pi-prompt-history) 0)
                (equal prompt (ring-ref pi-prompt-history 0)))
     (ring-insert pi-prompt-history prompt))
-  (setq pi-prompt-history-index 0))
+  (setq pi-prompt-history-index 0)
+  (pi-section-autohide))
 
 (defun pi-send-prompt (&optional prompt streaming-behavior)
   (interactive "sPrompt: ")
@@ -2061,7 +2081,8 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
          (pi-widget-save-excursion
            (pi-clear-sections)
            (dolist (message messages)
-             (pi-insert-message message))))))))
+             (pi-insert-message message))))
+       (pi-section-autohide)))))
 
 (defun pi-clone ()
   (interactive)
