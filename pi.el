@@ -45,6 +45,7 @@
 (require 'thingatpt)
 (require 'ffap)
 (require 'ansi-color)
+(require 'diff-mode)
 
 (defgroup pi nil
   "Emacs client for Pi."
@@ -422,12 +423,26 @@ PRED is called with KEY VALUE."
     ;; Preserve text properties
     (buffer-string)))
 
+(defun pi-diff-overlay-to-text-properties ()
+  (dolist (ov (overlays-in (point-min) (point-max)))
+    (when (eq (overlay-get ov 'diff-mode) 'fine)
+      (put-text-property
+       (overlay-start ov)
+       (overlay-end ov)
+       'face
+       (overlay-get ov 'face)))))
+
 (defun pi-render-diff (diff)
   (with-temp-buffer
     (insert diff)
     (delay-mode-hooks
       (diff-mode)
-      (font-lock-ensure))
+      (font-lock-ensure)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (diff-hunk-next)
+        (diff-refine-hunk))
+      (pi-diff-overlay-to-text-properties))
     (set-buffer-modified-p nil)
     (buffer-string)))
 
@@ -1062,8 +1077,8 @@ PRED is called with KEY VALUE."
     (pi-insert-file-link (expand-file-name path (pi-project-root)))))
 
 (defun pi-insert-edit-result (result-text details _args)
-  (when-let ((diff (plist-get details :diff)))
-    (insert (pi-render-diff diff)))
+  (when-let ((patch (plist-get details :patch)))
+    (insert (pi-render-diff patch)))
   (when (not (string-empty-p result-text))
     (insert (format "\n\n%s" result-text))))
 
@@ -1074,20 +1089,19 @@ PRED is called with KEY VALUE."
 (defun pi-visit-edit-result (_details args)
   (when-let ((path (plist-get args :path)))
     (let* ((section (pi-current-section))
-           (beg (pi-section-beginning section))
-           (end (pi-section-end section))
-           (re "^[+ ]\\([0-9]+\\)")
-           (line
-            (or
-             (save-excursion
-               (end-of-line)
-               (when (re-search-backward re beg t)
-                 (string-to-number (match-string 1))))
-             (save-excursion
-               (when (re-search-forward re end t)
-                 (string-to-number (match-string 1)))))))
+           (reverse (not (save-excursion (beginning-of-line) (looking-at "[-<]"))))
+           (line-number
+            (save-restriction
+              (narrow-to-region (pi-section-beginning section)
+                                (pi-section-end section))
+              (condition-case nil
+                  (pcase-let ((`(,buffer ,_line-offset ,pos ,src ,_dst ,_switched)
+                               (diff-find-source-location nil reverse)))
+                    (with-current-buffer buffer
+                      (line-number-at-pos (+ (car pos) (cdr src)))))
+                (error nil)))))
       (list :file (expand-file-name path (pi-project-root))
-            :line (or line 1)))))
+            :line (or line-number 1)))))
 
 ;; bash
 (defun pi-insert-bash-args (args)
