@@ -548,7 +548,7 @@ PRED is called with KEY VALUE."
 (defun pi-recenter-chat ()
   (when-let (window (get-buffer-window (current-buffer) t))
     (with-selected-window window
-      (recenter (- -1 scroll-margin (pi-extra-widget-lines))))))
+      (recenter (- -1 scroll-margin (pi-widget-lines pi-prompt-widget) (pi-extra-widget-lines))))))
 
 (defmacro pi-widget-save-excursion (&rest body)
   "Insert content before PROMPT-WIDGET and restore focus afterward."
