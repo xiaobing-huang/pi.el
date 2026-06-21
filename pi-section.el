@@ -170,9 +170,12 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
 (defun pi-update-section-end (section end)
   (when section
     (let ((current-end (pi-section-end section)))
-      (if (or (null current-end)
-              (<= (marker-position current-end) (marker-position end)))
-          (setf (pi-section-end section) end)))
+      (when (or (null current-end)
+                (<= (marker-position current-end) (marker-position end)))
+        (setf (pi-section-end section) end)
+        ;; rebuild the overlay if the section is hidden
+        (when (pi-section-hidden section)
+          (pi-section-set-hidden section t))))
     (pi-update-section-end (pi-section-parent section) end)))
 
 (defun pi-propertize-section (section)
