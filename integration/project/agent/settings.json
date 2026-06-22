@@ -2,7 +2,8 @@
   "lastChangelogVersion": "0.78.0",
   "defaultThinkingLevel": "low",
   "compaction": {
-    "enabled": true
+    "enabled": true,
+    "keepRecentTokens": 1000
   },
   "defaultProvider": "fixture",
   "defaultModel": "qwen3.5:4b",
