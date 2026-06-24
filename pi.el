@@ -393,9 +393,10 @@ PRED is called with KEY VALUE."
 (defun pi-render-markdown (text)
   (with-temp-buffer
     (insert text)
-    (delay-mode-hooks
-      (markdown-view-mode))
-    (font-lock-ensure)
+    (ignore-errors
+      (delay-mode-hooks
+        (markdown-view-mode))
+      (font-lock-ensure))
     (buffer-string)))
 
 (defun pi-render-content (filename content)
@@ -411,11 +412,12 @@ PRED is called with KEY VALUE."
 
     (insert content)
 
-    (delay-mode-hooks
-      (let ((enable-local-variables nil)
-            (enable-local-eval nil))
-        (set-auto-mode)
-        (font-lock-ensure)))
+    (ignore-errors
+      (delay-mode-hooks
+        (let ((enable-local-variables nil)
+              (enable-local-eval nil))
+          (set-auto-mode)
+          (font-lock-ensure))))
 
     ;; Prevent save prompts
     (set-buffer-modified-p nil)
