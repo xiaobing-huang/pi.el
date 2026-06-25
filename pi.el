@@ -1192,16 +1192,21 @@ PRED is called with KEY VALUE."
             (insert "\n"))
           (delete-char -1))))))
 
-(defun pi-visit-grep-result (_details _args)
+(defun pi-normalize-grep-file (file args)
+  (if-let ((path (plist-get args :path)))
+      (expand-file-name file path)
+    file))
+
+(defun pi-visit-grep-result (_details args)
   (save-excursion
     (beginning-of-line)
     (when-let ((line (thing-at-point 'line t)))
       (cond
        ((string-match pi-grep-line-regexp line)
-        (list :file (match-string 1 line)
+        (list :file (pi-normalize-grep-file (match-string 1 line) args)
               :line (string-to-number (match-string 2 line))))
        ((string-match pi-grep-line-alt-regexp line)
-        (list :file (match-string 1 line)
+        (list :file (pi-normalize-grep-file (match-string 1 line) args)
               :line (string-to-number (match-string 3 line))))))))
 
 ;; find
