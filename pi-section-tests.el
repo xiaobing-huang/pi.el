@@ -502,3 +502,50 @@
       (should (eq (pi-section-visibility build) :autohide))
       (pi-toggle-section)
       (should (eq (pi-section-visibility build) :show)))))
+
+
+;; ─── pi-section-autohide ───────────────────────────────────────────────
+
+(ert-deftest pi-section-autohide-nil-count ()
+  (pi-with-root-section
+    (let ((a (pi-new-section 'a pi-root-section))
+          (b (pi-new-section 'b pi-root-section)))
+      (pi-insert-section a (insert "[-] A\n"))
+      (pi-insert-section b (insert "[-] B\n"))
+      (let ((pi-section-autohide-count nil))
+        (pi-section-autohide)
+        (should (eq (pi-section-visibility a) :autoshow))
+        (should (eq (pi-section-visibility b) :autoshow))))))
+
+(ert-deftest pi-section-autohide-skips-middle-section-at-point ()
+  (pi-with-root-section
+    (let ((a (pi-new-section 'a pi-root-section))
+          (b (pi-new-section 'b pi-root-section))
+          (c (pi-new-section 'c pi-root-section))
+          (d (pi-new-section 'd pi-root-section)))
+      (pi-insert-section a (insert "[-] A\n"))
+      (pi-insert-section b (insert "[-] B\n"))
+      (pi-insert-section c (insert "[-] C\n"))
+      (pi-insert-section d (insert "[-] D\n"))
+      (let ((pi-section-autohide-count 2))
+        (goto-char (pi-section-beginning b))
+        (pi-section-autohide)
+        (should (eq (pi-section-visibility a) :autohide))
+        (should (eq (pi-section-visibility b) :autoshow))
+        (should (eq (pi-section-visibility c) :autoshow))
+        (should (eq (pi-section-visibility d) :autoshow))))))
+
+(ert-deftest pi-section-autohide-skips-non-autoshow ()
+  (pi-with-root-section
+    (let ((a (pi-new-section 'a pi-root-section))
+          (b (pi-new-section 'b pi-root-section))
+          (c (pi-new-section 'c pi-root-section)))
+      (pi-insert-section a (insert "[-] A\n"))
+      (pi-insert-section b (insert "[-] B\n"))
+      (pi-insert-section c (insert "[-] C\n"))
+      (pi-section-set-visibility a :show)
+      (let ((pi-section-autohide-count 1))
+        (pi-section-autohide)
+        (should (eq (pi-section-visibility a) :show))
+        (should (eq (pi-section-visibility b) :autohide))
+        (should (eq (pi-section-visibility c) :autoshow))))))

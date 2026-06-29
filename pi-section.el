@@ -362,7 +362,9 @@ VISIBILITY can be one of:
               (children (pi-section-children pi-root-section)))
     (let ((hide-count (max 0 (- (length children) count))))
       (dolist (child (seq-take children hide-count))
-        (when (eq (pi-section-visibility child) :autoshow)
+        (when (and (eq (pi-section-visibility child) :autoshow)
+                   (not (and (>= (point) (pi-section-beginning child))
+                             (< (point) (pi-section-end child)))))
           (pi-section-set-visibility child :autohide))))))
 
 (defun pi-section-show-level-1-all ()
