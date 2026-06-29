@@ -259,7 +259,7 @@ with the message plist to insert the custom message content."
   :group 'pi)
 
 (defcustom pi-send-pop-to-chat t
-  "Whether to pop to the chat buffer after `pi-send-region' and `pi-send-filename'."
+  "Whether to pop to the chat buffer after sending region, filename or errors."
   :type 'boolean
   :group 'pi)
 
@@ -1747,13 +1747,16 @@ If `pi-prompt-streaming-behavior' is `followUp', use `steer' and vice versa."
     (let ((buffer (pi-current-chat)))
       (when buffer (pop-to-buffer buffer)))))
 
+(defun pi-project-relative-name ()
+  (let ((root (pi-project-root)))
+    (file-relative-name buffer-file-name root)))
+
 (defun pi-send-region (start end)
   "Append the region delimited by START and END to the pi prompt input."
   (interactive "r")
   (let* ((string (buffer-substring-no-properties start end))
          (header (when buffer-file-name
-                   (let* ((root (pi-project-root))
-                          (relative (file-relative-name buffer-file-name root))
+                   (let* ((relative (pi-project-relative-name))
                           (line-start (line-number-at-pos start))
                           (line-end (line-number-at-pos end)))
                      (format "@%s#L%d-%d\n" relative line-start line-end))))
@@ -1762,16 +1765,54 @@ If `pi-prompt-streaming-behavior' is `followUp', use `steer' and vice versa."
     (deactivate-mark)
     (pi-pop-to-chat)))
 
-;;;###autoload
 (defun pi-send-filename ()
   "Append the current buffer's filename to the pi prompt input."
   (interactive)
   (when buffer-file-name
-    (let* ((root (pi-project-root))
-           (relative (file-relative-name buffer-file-name root))
+    (let* ((relative (pi-project-relative-name))
            (header (format "@%s" relative)))
       (pi-prompt-append header)
       (pi-pop-to-chat))))
+
+(declare-function flycheck-overlay-errors-at "ext:flycheck")
+(declare-function flycheck-error-line "ext:flycheck")
+(declare-function flycheck-error-level "ext:flycheck")
+(declare-function flycheck-error-message "ext:flycheck")
+(declare-function flycheck-error-buffer "ext:flycheck")
+(declare-function flycheck-error-format-position "ext:flycheck")
+
+(defun pi-get-line-contents (buffer line)
+  (with-current-buffer buffer
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (buffer-substring-no-properties
+         (point)
+         (line-end-position))))))
+
+(defun pi-send-flycheck-errors ()
+  "Append flycheck errors at point to the pi prompt input."
+  (interactive)
+  (let ((errors (flycheck-overlay-errors-at (point))))
+    (when (and errors buffer-file-name)
+      (let* ((relative (pi-project-relative-name))
+             (error-lines
+              (mapconcat
+               (lambda (err)
+                 (let* ((level (flycheck-error-level err))
+                        (message (flycheck-error-message err))
+                        (header (format "@%s#%s" relative (flycheck-error-format-position err)))
+                        (line (pi-get-line-contents (flycheck-error-buffer err) (flycheck-error-line err))))
+                   (format "%s\n%s\n%s: %s"
+                           header
+                           line
+                           (capitalize (symbol-name level))
+                           message)))
+               errors "\n")))
+        (pi-prompt-append error-lines)
+        (pi-pop-to-chat)))))
 
 (defun pi-abort ()
   (interactive)

@@ -262,7 +262,7 @@ with the message plist to insert the custom message content.
 
 #### pi-send-pop-to-chat `t`
 
-Whether to pop to the chat buffer after `pi-send-region` and `pi-send-filename`.
+Whether to pop to the chat buffer after sending region, filename or errors.
 
 #### pi-section-autohide-count `2`
 
