@@ -48,6 +48,7 @@
                "Type \\[pi-edit-finish] to finish, \\[pi-edit-cancel] to cancel")))
 
 (defun pi-edit-finish ()
+  "Finish editing and pass the content to the callback."
   (interactive)
   (let ((text (buffer-string))
         (buffer (current-buffer))
@@ -60,6 +61,7 @@
       (funcall callback text))))
 
 (defun pi-edit-cancel ()
+  "Cancel editing and discard the buffer."
   (interactive)
   (let ((buffer (current-buffer))
         (callback pi-edit--on-cancel)

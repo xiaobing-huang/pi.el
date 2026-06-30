@@ -27,12 +27,10 @@
 ;;; Code:
 
 (defcustom pi-section-autohide-count 2
-  "Automatically hide older sections in the chat buffer, keeping only the
-last N sections visible.  This helps reduce clutter by collapsing
-earlier responses when the conversation grows long.
-
-When nil, auto hiding is disabled and no sections are hidden
-automatically."
+  "Automatically hide older chat sections beyond this count.
+This helps reduce clutter by collapsing earlier responses when the
+conversation grows long.  When nil, auto hiding is disabled and no
+sections are hidden automatically."
   :type '(choice (const :tag "Disable" nil)
                  integer)
   :group 'pi)
@@ -357,6 +355,7 @@ VISIBILITY can be one of:
         (pi-section--set-visibility section :show)))))
 
 (defun pi-section-autohide ()
+  "Hide sections beyond `pi-section-autohide-count'."
   (interactive)
   (when-let* ((count pi-section-autohide-count)
               (children (pi-section-children pi-section--root-section)))

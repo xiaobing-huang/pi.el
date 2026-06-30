@@ -86,6 +86,15 @@ endef
 export ESCRIPT
 
 
+.PHONY: docs-lint
+docs-lint:
+	cask emacs --batch -L . \
+	  --eval "(require 'checkdoc)" \
+	  --eval "(checkdoc-file \"pi.el\")" \
+	  --eval "(checkdoc-file \"pi-section.el\")" \
+	  --eval "(checkdoc-file \"pi-edit.el\")" 2>&1 | grep '^pi[.-]' | grep -v 'All variables and subroutines might as well have a documentation string' || true
+
+.PHONY: docs
 docs: pi.info
 	ruby -e 'txt = IO.read("pi.texi").split("@c custom-variables-start")[0] + "@c custom-variables-start\n\n" + `emacs --batch --eval "$$ESCRIPT"` + "@c custom-variables-end" + IO.read("pi.texi").split("@c custom-variables-end")[1]; File.write("pi.texi", txt)'
 	makeinfo pi.texi

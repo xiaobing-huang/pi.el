@@ -324,7 +324,7 @@ with the message plist to insert the custom message content."
     (number-to-string n))))
 
 (defmacro pi--def-permanent-buffer-local (name &optional init-value)
-  "Declare NAME as buffer local variable."
+  "Declare NAME as buffer local variable with optional INIT-VALUE."
   `(progn
      (defvar ,name ,init-value)
      (make-variable-buffer-local ',name)
@@ -565,7 +565,7 @@ PRED is called with KEY VALUE."
       (recenter (- -1 scroll-margin (pi--widget-lines pi--prompt-widget) (pi--extra-widget-lines))))))
 
 (defmacro pi--widget-save-excursion (&rest body)
-  "Insert content before PROMPT-WIDGET and restore focus afterward."
+  "Insert before PROMPT-WIDGET and restore focus.  BODY is the content."
   (declare (indent 0))
   `(let* ((inhibit-read-only t)
           (window (get-buffer-window (current-buffer) t))
@@ -580,7 +580,7 @@ PRED is called with KEY VALUE."
        (pi--recenter-chat))))
 
 (defmacro pi--with-chat-buffer (&rest body)
-  "Execute the body in the current chat buffer."
+  "Execute BODY in the current chat buffer."
   (declare (indent 0))
   `(let ((buffer (pi--current-chat)))
      (if buffer
@@ -619,7 +619,7 @@ PRED is called with KEY VALUE."
         (apply (cdr listener) (list event))))))
 
 (defun pi--set-event-listener (name listener)
-  "Set `name' to t to receive all events."
+  "Set event listener NAME for all events.  LISTENER is the callback."
   (puthash (cons (pi--project-key) name) (cons (current-buffer) listener) pi--event-listeners))
 
 (defun pi--dispatch (response)
@@ -1553,6 +1553,7 @@ PRED is called with KEY VALUE."
   (pi--set-event-listener t #'pi--handle-agent-state))
 
 (defun pi-focus-prompt ()
+  "Move point to the chat prompt input field."
   (interactive)
   (goto-char (widget-field-text-end pi--prompt-widget)))
 
@@ -1691,6 +1692,7 @@ Shows context usage and model info."
   (pi-section-autohide))
 
 (defun pi-send-prompt (&optional prompt streaming-behavior)
+  "Send PROMPT with optional STREAMING-BEHAVIOR to the agent."
   (interactive "sPrompt: ")
   (if (or (null prompt) (string-empty-p prompt))
       (message "No prompt to send")
@@ -1819,6 +1821,7 @@ If `pi-prompt-streaming-behavior' is `followUp', use `steer' and vice versa."
         (pi--pop-to-chat)))))
 
 (defun pi-abort ()
+  "Abort the current agent operation."
   (interactive)
   (pi--with-chat-buffer
     (when (or pi--retry-in-progress pi--bash-in-progress pi--agent-state)
@@ -1842,6 +1845,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
     (insert (format " %s: %d\n" label (plist-get plist key)))))
 
 (defun pi-session-stats ()
+  "Show current session statistics."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -1891,6 +1895,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
               (format " Total: %.4f\n" cost)))))))))
 
 (defun pi-select-model ()
+  "Select a different model for the session."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -1968,6 +1973,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
     (cons :off (nreverse result))))
 
 (defun pi-set-thinking-level ()
+  "Set the thinking level for the agent."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2000,6 +2006,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                       (insert (format "Thinking level set to: %s" (car choice)))))))))))))))
 
 (defun pi-cycle-model ()
+  "Cycle to the next available model."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2021,6 +2028,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                                  (if (eq is-scoped t) " (scoped)" ""))))))))))))
 
 (defun pi-set-steering-mode ()
+  "Switch to steering mode for prompt delivery."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2039,6 +2047,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                   (insert (format "Steering mode set to: %s" (cdr choice)))))))))))))
 
 (defun pi-set-follow-up-mode ()
+  "Switch to follow-up mode for prompt delivery."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2057,6 +2066,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                   (insert (format "Follow-up mode set to: %s" (cdr choice)))))))))))))
 
 (defun pi-cycle-thinking-level ()
+  "Cycle to the next thinking level."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2124,6 +2134,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                               :name name))))
 
 (defun pi-resume ()
+  "Resume a previous session."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2177,6 +2188,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
   (clrhash pi--tool-calls))
 
 (defun pi-refresh-session ()
+  "Refresh the current session state."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2190,6 +2202,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
        (pi-section-autohide)))))
 
 (defun pi-clone ()
+  "Clone the current session."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2203,6 +2216,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
              (insert "Session cloned."))))))))
 
 (defun pi-new-session ()
+  "Start a new session."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2214,6 +2228,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
            (pi--clear-sections)))))))
 
 (defun pi-set-session-name (name)
+  "Set the session name to NAME."
   (interactive "sSession name: ")
   (let ((trimmed (string-trim name)))
     (if (string-empty-p trimmed)
@@ -2229,6 +2244,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                (insert (format "Session renamed to: %s" trimmed))))))))))
 
 (defun pi-export (&optional output-path)
+  "Export the current session to OUTPUT-PATH."
   (interactive
    (list (when current-prefix-arg
            (expand-file-name
@@ -2262,6 +2278,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
            (message "No assistant message available to copy.")))))))
 
 (defun pi-fork ()
+  "Fork the current session from this point."
   (interactive)
   (pi--with-chat-buffer
     (pi--send-command
@@ -2292,7 +2309,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
 (defun pi-compact (&optional custom-instructions)
   "Compact the current session to reduce context usage.
 
-With prefix argument, prompt for custom instructions to guide the
+With prefix argument, prompt for CUSTOM-INSTRUCTIONS to guide the
 summarization."
   (interactive
    (list (when current-prefix-arg
@@ -2308,6 +2325,7 @@ summarization."
          (pi--update-header-line))))))
 
 (defun pi-set-auto-compaction (enabled)
+  "Toggle auto compaction with ENABLED."
   (interactive (list (y-or-n-p "Enable auto compaction? ")))
   (pi--with-chat-buffer
     (pi--send-command
@@ -2319,6 +2337,7 @@ summarization."
            (insert (format "Compaction set to: %s" (if enabled "auto" "manual")))))))))
 
 (defun pi-set-auto-retry (enabled)
+  "Toggle auto retry with ENABLED."
   (interactive (list (y-or-n-p "Enable auto retry? ")))
   (pi--with-chat-buffer
     (pi--send-command
@@ -2330,6 +2349,7 @@ summarization."
            (insert (format "Auto retry set to: %s" (if enabled "enabled" "disabled")))))))))
 
 (defun pi-bash (command &optional exclude-from-context)
+  "Run a bash COMMAND with optional EXCLUDE-FROM-CONTEXT flag."
   (interactive "sBash command: ")
   (unless (string-empty-p (string-trim command))
     (pi--with-chat-buffer
@@ -2382,7 +2402,7 @@ summarization."
 
 (defun pi-visit-item (&optional other-window)
   "Visit current item.
-With a prefix argument, visit in other window."
+With a prefix argument OTHER-WINDOW, visit in other window."
   (interactive (list current-prefix-arg))
   (pi-section--section-case
       ((tool-result)
@@ -2471,7 +2491,7 @@ With a prefix argument, visit in other window."
 
 ;;;###autoload
 (defun pi-chat (&optional name)
-  "Start a chat window."
+  "Start a chat window with optional session NAME."
   (interactive
    (list (when current-prefix-arg
            (read-string "Session name: "))))
