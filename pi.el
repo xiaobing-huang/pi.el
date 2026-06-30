@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026 Anantha Kumaran.
 
 ;; Author: Anantha kumaran <ananthakumaran@gmail.com>
-;; URL: http://github.com/ananthakumaran/pi.el
+;; URL: https://github.com/ananthakumaran/pi.el
 ;; Version: 0.1
 ;; Keywords: convenience processes
 ;; Package-Requires: ((emacs "28.1") (compat "31.0") (markdown-mode "2.8") (timeout "2.1.7") (pcre2el "1.12") (spinner "1.7"))
@@ -55,7 +55,7 @@
   :group 'tools)
 
 (defface pi-chat-role-face
-  '((t :inherit font-lock-keyword-face :weight bold))
+  '((t :inherit font-lock-keyword-face))
   "Face used for chat message role labels."
   :group 'pi)
 
@@ -65,12 +65,12 @@
   :group 'pi)
 
 (defface pi-thinking-face
-  '((t :inherit shadow :italic t))
+  '((t :inherit font-lock-comment-face))
   "Face used for assistant thinking content."
   :group 'pi)
 
 (defface pi-tool-name-face
-  '((t :inherit font-lock-function-name-face :weight bold))
+  '((t :inherit font-lock-function-name-face))
   "Face used for tool names in tool execution events."
   :group 'pi)
 
@@ -80,7 +80,7 @@
   :group 'pi)
 
 (defface pi-notify-info-face
-  '((t :inherit shadow))
+  '((t :inherit font-lock-comment-face))
   "Face used for info notification messages."
   :group 'pi)
 
@@ -405,11 +405,12 @@ PRED is called with KEY VALUE."
 (defun pi--render-markdown (text)
   (with-temp-buffer
     (insert text)
-    (ignore-errors
-      (delay-mode-hooks
-        (markdown-view-mode))
-      (font-lock-ensure))
-    (buffer-string)))
+    (let ((inhibit-message t))
+      (ignore-errors
+        (delay-mode-hooks
+          (markdown-view-mode))
+        (font-lock-ensure))
+      (buffer-string))))
 
 (defun pi--render-content (filename content)
   (with-temp-buffer
@@ -424,12 +425,13 @@ PRED is called with KEY VALUE."
 
     (insert content)
 
-    (ignore-errors
-      (delay-mode-hooks
-        (let ((enable-local-variables nil)
-              (enable-local-eval nil))
-          (set-auto-mode)
-          (font-lock-ensure))))
+    (let ((inhibit-message t))
+      (ignore-errors
+        (delay-mode-hooks
+          (let ((enable-local-variables nil)
+                (enable-local-eval nil))
+            (set-auto-mode)
+            (font-lock-ensure)))))
 
     ;; Prevent save prompts
     (set-buffer-modified-p nil)

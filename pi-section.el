@@ -22,9 +22,9 @@
 ;; These sections are used for navigation and for hiding parts of the
 ;; buffer.
 
-(require 'cl-lib)
-
 ;;; Code:
+
+(require 'cl-lib)
 
 (defcustom pi-section-autohide-count 2
   "Automatically hide older chat sections beyond this count.

@@ -18,10 +18,10 @@
 
 ;;; Commentary:
 
+;;; Code:
+
 (require 'cl-lib)
 (require 'compat)
-
-;;; Code:
 
 (defvar-keymap pi-edit-mode-map
   "C-c C-c"                                #'pi-edit-finish
