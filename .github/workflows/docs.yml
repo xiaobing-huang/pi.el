@@ -1,0 +1,39 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - master
+      - docs
+
+jobs:
+  build-and-deploy:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+
+    - name: Install texinfo
+      run: sudo apt-get update && sudo apt-get install -y texinfo
+
+    - uses: purcell/setup-emacs@master
+      with:
+        version: '30.2'
+
+    - uses: conao3/setup-cask@master
+
+    - name: Build docs
+      run: make docs
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+        publish_branch: gh-pages
+        force_orphan: true

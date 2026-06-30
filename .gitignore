@@ -7,3 +7,4 @@ integration/fixture/node_modules
 integration/project/agent/sessions
 coverage-final.json
 .pi
+docs/index.html

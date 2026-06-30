@@ -13,7 +13,7 @@ cask: $(CASK_DIR)
 .PHONY: compile
 compile: cask
 	cask emacs -batch -L . -L test \
-	  -f batch-byte-compile $$(cask files); \
+	  -f batch-byte-compile pi.el pi-section.el pi-edit.el; \
 	  (ret=$$? ; cask clean-elc && exit $$ret)
 
 .PHONY: test
@@ -70,14 +70,16 @@ define ESCRIPT
               (let* ((name (cadr sexp))
                      (default-raw (pp-to-string (eval (car (cddr sexp)) t)))
                      (default-str (string-trim default-raw))
-                     (doc (replace-regexp-in-string "`\\([^ ]*\\)'" "`\\1`" (cadr (cddr sexp)))))
+                     (doc (replace-regexp-in-string "`\\([^']*\\)'" "@code{\\1}" (cadr (cddr sexp)))))
                 (if (string-match-p "\n" default-str)
-                    (princ (format "#### %s\n\n<details><summary>Default Value</summary>\n\n```elisp\n%s\n```\n\n</details>\n\n%s\n\n" name default-str doc))
-                  (princ (format "#### %s `%s`\n\n%s\n\n" name default-str doc)))))
+                    (princ (format "@defopt %s\n\n@lisp\n%s\n@end lisp\n\n%s\n@end defopt\n\n" name default-str doc))
+                  (princ (format "@defopt %s @code{%s}\n\n%s\n@end defopt\n\n" name default-str doc)))))
             t)))))
 endef
 export ESCRIPT
 
 
-readme:
-	ruby -e 'puts IO.read("README.md").split("## Custom Variables")[0] + "## Custom Variables\n\n" + `emacs --batch --eval "$$ESCRIPT"`' | sponge README.md
+docs: pi.info
+	ruby -e 'txt = IO.read("pi.texi").split("@c custom-variables-start")[0] + "@c custom-variables-start\n\n" + `emacs --batch --eval "$$ESCRIPT"` + "@c custom-variables-end" + IO.read("pi.texi").split("@c custom-variables-end")[1]; File.write("pi.texi", txt)'
+	makeinfo pi.texi
+	makeinfo --no-number-sections --html --no-split --css-ref="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" --css-ref=global.css -o ./docs/index.html pi.texi

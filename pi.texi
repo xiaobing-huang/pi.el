@@ -1,0 +1,424 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename pi.info
+@settitle Pi User Manual
+@c %**end of header
+
+@copying
+Copyright @copyright{} 2026 Anantha Kumaran.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.
+@end quotation
+@end copying
+
+@ifhtml
+@html
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<!-- and it's easy to individually load additional languages -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/lisp.min.js"></script>
+
+<link rel="stylesheet" href="https://unpkg.com/highlightjs-copy/dist/highlightjs-copy.min.css">
+
+<script src="https://unpkg.com/highlightjs-copy/dist/highlightjs-copy.min.js"></script>
+
+
+<script>
+hljs.registerAliases(["example"], { languageName: "shell" });
+hljs.configure({
+  cssSelector: "div.example > pre",
+  languageDetectRe: /\b([\w-]+)-preformatted\b/
+});
+
+hljs.addPlugin(new CopyButtonPlugin());
+
+hljs.highlightAll();
+</script>
+@end html
+@end ifhtml
+
+@dircategory Emacs
+@direntry
+* Pi: (pi).               An Emacs client for Pi Coding Agent.
+@end direntry
+
+@node Top
+@top Pi User Manual
+
+Pi is an Emacs client for Pi Coding Agent.
+
+@menu
+* Introduction::
+* Setup::
+* Usage::
+* Sandbox::
+* How It Works::
+* Keybindings::
+* Custom Variables::
+@end menu
+
+@node Introduction
+@chapter Introduction
+
+Pi is an Emacs client for @uref{https://pi.dev/, Pi Coding Agent}.
+It provides an interactive interface to the Pi Coding Agent directly
+from Emacs.
+
+@node Setup
+@chapter Setup
+
+@section Install the Pi Agent
+
+First, install the Pi agent using npm:
+
+@example
+npm install -g --ignore-scripts @@earendil-works/pi-coding-agent
+@end example
+
+Then start Pi and run @code{/login} to configure your provider:
+
+@example
+pi
+@end example
+
+@section Install @code{pi.el}
+
+Add the following to your Emacs configuration:
+
+@lisp
+(use-package pi
+  :ensure t
+  :vc (:url "git@@github.com:ananthakumaran/pi.el.git"
+       :rev :newest)
+  :commands (pi-chat))
+@end lisp
+
+@node Usage
+@chapter Usage
+
+Run @kbd{M-x pi-chat} from any file in your project to start a Pi chat
+session.  Use a prefix argument (@kbd{C-u M-x pi-chat}) to start
+multiple chats on the same project.
+
+The chat buffer is read-only except for the prompt input area.  Use
+@kbd{RET} to submit a prompt and @kbd{C-j} to insert a newline.  Press
+@kbd{i} from anywhere in the chat buffer to move point to the prompt
+input area.
+
+@menu
+* Slash Commands::
+* File Name Completion::
+* Bash::
+* Sending Context::
+@end menu
+
+@node Slash Commands
+@section Slash Commands
+
+@uref{https://pi.dev/docs/latest/usage#slash-commands, Slash commands}
+support completion in the prompt buffer.  Type @kbd{/} and press
+@kbd{C-M-i} (or any key bound to completion) to see available commands.
+
+@node File Name Completion
+@section File Name Completion
+
+Type @kbd{@@} followed by a partial file path to trigger file name
+completion in the prompt buffer.  The completion backend is controlled
+by @code{pi-file-completion-backend}.
+
+@node Bash
+@section Bash
+
+Prefix a command with @code{!} to run it in Bash.  Use @code{!!} to
+run a command without adding it to the conversation context.
+
+@example
+! echo "hello"
+@end example
+
+@node Sending Context
+@section Sending Context
+
+You can send contextual information from any buffer to the Pi chat
+prompt.
+
+@multitable @columnfractions .35 .65
+@headitem Command @tab Description
+@item @code{pi-send-region} @tab Append the selected region to the prompt input.
+@item @code{pi-send-filename} @tab Append the current buffer's filename (prefixed with @code{@@}) to the prompt input.
+@item @code{pi-send-flycheck-errors} @tab Append the Flycheck errors at point to the prompt input.  Falls back to all current errors in the buffer when there are none at point.
+@end multitable
+
+@node Sandbox
+@chapter Sandbox
+
+To run Pi inside a sandbox, customize @code{pi-executable} and
+@code{pi-flags}:
+
+@lisp
+(setq pi-executable "nono")
+(setq pi-flags '("run" "--silent" "--profile" "pi" "--allow-cwd" "--" "pi"
+                 "--tools" "read,bash,edit,write,grep,find,ls"))
+@end lisp
+
+@node How It Works
+@chapter How It Works
+
+Emacs starts Pi in RPC mode
+(@uref{https://pi.dev/docs/latest/rpc, documentation}).  In this
+setup, Pi handles the agent logic while Emacs provides the user
+interface.
+
+Some features, such as @code{/login} and @code{/logout}, are not
+@uref{https://github.com/earendil-works/pi/issues/885, supported}
+because they are not currently exposed through the RPC API.
+
+@node Keybindings
+@chapter Keybindings
+
+@section Chat Buffer Keybindings
+
+@multitable @columnfractions .2 .3 .5
+@headitem Key @tab Command @tab Description
+@item @kbd{RET}
+@tab @code{pi-visit-item}
+@tab Jump to the source location at point; with a prefix argument, open
+in another window
+@item @kbd{C-g}
+@tab @code{pi-abort}
+@tab Abort the current operation
+@item @kbd{TAB}, @kbd{C-i}
+@tab @code{pi-toggle-section}
+@tab Toggle visibility of the section at point
+@item @kbd{n}, @kbd{M-n}
+@tab @code{pi-goto-next-section}
+@tab Move to the next section
+@item @kbd{p}, @kbd{M-p}
+@tab @code{pi-goto-previous-section}
+@tab Move to the previous section
+@item @kbd{l}, @kbd{M-g l}
+@tab @code{pi-goto-last-section}
+@tab Jump to the most recent section
+@item @kbd{i}
+@tab @code{pi-focus-prompt}
+@tab Focus the prompt input field
+@item @kbd{q}
+@tab @code{pi-quit-chat}
+@tab Quit the chat buffer
+@end multitable
+
+@section Prompt Input Keybindings
+
+@multitable @columnfractions .2 .3 .5
+@headitem Key @tab Command @tab Description
+@item @kbd{C-g}
+@tab @code{pi-abort}
+@tab Abort the current operation
+@item @kbd{M-p}
+@tab @code{pi-previous-prompt}
+@tab Recall the previous prompt from history
+@item @kbd{M-n}
+@tab @code{pi-next-prompt}
+@tab Recall the next prompt from history
+@item @kbd{C-r}
+@tab @code{pi-search-prompt}
+@tab Search prompt history
+@item @kbd{RET}
+@tab @code{widget-field-activate}
+@tab Send the current prompt
+@item @kbd{M-RET}
+@tab @code{pi-send-prompt-alternate}
+@tab Send the prompt using the alternate streaming behavior
+@item @kbd{M-g l}
+@tab @code{pi-goto-last-section}
+@tab Jump to the most recent section
+@end multitable
+
+@node Custom Variables
+@chapter Custom Variables
+
+@c custom-variables-start
+
+@defopt pi-use-ansi-colors @code{t}
+
+Whether to render ANSI colors in widget and status output.
+@end defopt
+
+@defopt pi-sync-request-timeout @code{2}
+
+The number of seconds to wait for a sync response.
+@end defopt
+
+@defopt pi-executable @code{"pi"}
+
+Pi command executable name.
+@end defopt
+
+@defopt pi-process-environment @code{nil}
+
+List of extra environment variables to use when starting pi.
+@end defopt
+
+@defopt pi-flags @code{nil}
+
+List of additional flags to provide when starting pi.
+@end defopt
+
+@defopt pi-log-rpc @code{nil}
+
+When non-nil, log all RPC JSON to @code{pi-log-rpc-file}.
+@end defopt
+
+@defopt pi-log-rpc-file @code{"/tmp/pi.el.log"}
+
+File to write RPC JSON log entries to.
+@end defopt
+
+@defopt pi-file-completion-backend @code{project}
+
+Completion backend for @-prefixed file paths in prompts.
+@code{project} uses @code{project-files} to list files in the current project.
+@code{file} uses @code{file-name-all-completions} to list files under the project root.
+@end defopt
+
+@defopt pi-prompt-history-max-size @code{500}
+
+Maximum number of prompt history entries to keep.
+@end defopt
+
+@defopt pi-resume-max-sessions @code{100}
+
+Maximum number of recent sessions to list when resuming a session.
+@end defopt
+
+@defopt pi-prompt-streaming-behavior @code{followUp}
+
+Default streaming behavior for prompts.
+
+@code{steer}: Queue the message while the agent is running.  It is delivered
+after the current assistant turn finishes executing its tool calls,
+before the next LLM call.
+
+@code{followUp}: Wait until the agent finishes.  Message is delivered only
+when agent stops.
+@end defopt
+
+@defopt pi-slash-commands
+
+@lisp
+(("model" pi-select-model 0) ("new" pi-new-session 0)
+ ("resume" pi-resume 0) ("compact" pi-compact 1)
+ ("set-auto-compaction" pi-set-auto-compaction 0)
+ ("set-auto-retry" pi-set-auto-retry 0) ("session" pi-session-stats 0)
+ ("name" pi-set-session-name 1)
+ ("set-thinking-level" pi-set-thinking-level 0)
+ ("cycle-model" pi-cycle-model 0)
+ ("cycle-thinking-level" pi-cycle-thinking-level 0)
+ ("set-steering-mode" pi-set-steering-mode 0)
+ ("set-follow-up-mode" pi-set-follow-up-mode 0) ("fork" pi-fork 0)
+ ("clone" pi-clone 0) ("copy" pi-copy 0) ("export" pi-export 1)
+ ("quit" pi-quit-chat 0) ("exit" pi-quit-chat 0))
+@end lisp
+
+Alist mapping slash command names to command specs.
+
+Each entry is (NAME COMMAND MAX-ARGS) where NAME is the command
+string without the leading slash, COMMAND is a command symbol,
+and MAX-ARGS is 0 or 1 indicating the number of optional string
+arguments the command accepts.
+@end defopt
+
+@defopt pi-insert-tool-args-functions
+
+@lisp
+(("read" . pi-insert-read-args) ("write" . pi-insert-write-args)
+ ("edit" . pi-insert-edit-args) ("bash" . pi-insert-bash-args)
+ ("grep" . pi-insert-grep-args) ("find" . pi-insert-find-args)
+ ("ls" . pi-insert-ls-args))
+@end lisp
+
+Alist mapping tool names to inserter functions.
+
+Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
+with ARGS plist to insert formatted tool call arguments.
+@end defopt
+
+@defopt pi-insert-tool-result-functions
+
+@lisp
+(("bash" . pi-insert-bash-result) ("read" . pi-insert-read-result)
+ ("write" . pi-insert-write-result) ("edit" . pi-insert-edit-result)
+ ("grep" . pi-insert-grep-result) ("find" . pi-insert-find-result)
+ ("ls" . pi-insert-ls-result))
+@end lisp
+
+Alist mapping tool names to result inserter functions.
+
+Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
+with (RESULT-TEXT DETAILS ARGS) to insert the tool execution result.
+@end defopt
+
+@defopt pi-visit-tool-result-functions
+
+@lisp
+(("read" . pi-visit-read-result) ("write" . pi-visit-write-result)
+ ("edit" . pi-visit-edit-result) ("grep" . pi-visit-grep-result))
+@end lisp
+
+Alist mapping tool names to result visitor functions.
+
+Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
+with (DETAILS ARGS) to visit the relevant location of the tool result.
+@end defopt
+
+@defopt pi-visit-tool-call-functions
+
+@lisp
+(("read" . pi-visit-read-call) ("write" . pi-visit-write-call)
+ ("edit" . pi-visit-edit-call))
+@end lisp
+
+Alist mapping tool names to call visitor functions.
+
+Each entry is (TOOL-NAME . FUNCTION) where FUNCTION is called
+with (ARGS) to visit the relevant location of the tool call.
+@end defopt
+
+@defopt pi-insert-custom-message-functions @code{nil}
+
+Alist mapping custom message types to inserter functions.
+
+Each entry is (CUSTOM-TYPE . FUNCTION) where FUNCTION is called
+with the message plist to insert the custom message content.
+@end defopt
+
+@defopt pi-send-pop-to-chat @code{t}
+
+Whether to pop to the chat buffer after sending region, filename or errors.
+@end defopt
+
+@defopt pi-section-autohide-count @code{2}
+
+Automatically hide older sections in the chat buffer, keeping only the
+last N sections visible.  This helps reduce clutter by collapsing
+earlier responses when the conversation grows long.
+
+When nil, auto hiding is disabled and no sections are hidden
+automatically.
+@end defopt
+
+@defopt pi-section-padding @code{"\n\n"}
+
+String inserted between sections to control the visual gap.
+Increase or decrease this value to adjust spacing between sections.
+@end defopt
+
+@c custom-variables-end
+
+@bye
