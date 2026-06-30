@@ -34,10 +34,10 @@
   "<remap> <iswitchb-kill-buffer>"         #'pi-edit-cancel
   "<remap> <evil-quit>"                    #'pi-edit-cancel)
 
-(defvar-local pi-edit-on-complete nil)
-(defvar-local pi-edit-on-cancel nil)
-(defvar-local pi-edit-original-text nil)
-(defvar-local pi-edit-return-window nil)
+(defvar-local pi-edit--on-complete nil)
+(defvar-local pi-edit--on-cancel nil)
+(defvar-local pi-edit--original-text nil)
+(defvar-local pi-edit--return-window nil)
 
 (define-derived-mode pi-edit-mode fundamental-mode "pi-edit"
   "Major mode for editing text via pi.
@@ -51,8 +51,8 @@
   (interactive)
   (let ((text (buffer-string))
         (buffer (current-buffer))
-        (callback pi-edit-on-complete)
-        (window pi-edit-return-window))
+        (callback pi-edit--on-complete)
+        (window pi-edit--return-window))
     (kill-buffer buffer)
     (when (window-live-p window)
       (select-window window))
@@ -62,15 +62,15 @@
 (defun pi-edit-cancel ()
   (interactive)
   (let ((buffer (current-buffer))
-        (callback pi-edit-on-cancel)
-        (window pi-edit-return-window))
+        (callback pi-edit--on-cancel)
+        (window pi-edit--return-window))
     (kill-buffer buffer)
     (when (window-live-p window)
       (select-window window))
     (when callback
       (funcall callback))))
 
-(defun pi-with-editor (on-complete on-cancel &optional text)
+(defun pi-edit--with-editor (on-complete on-cancel &optional text)
   (let ((buffer (generate-new-buffer "*pi-edit*"))
         (window (selected-window)))
     (with-current-buffer buffer
@@ -78,9 +78,9 @@
       (when text
         (insert text)
         (goto-char (point-min)))
-      (setq pi-edit-on-complete on-complete
-            pi-edit-on-cancel on-cancel
-            pi-edit-return-window window))
+      (setq pi-edit--on-complete on-complete
+            pi-edit--on-cancel on-cancel
+            pi-edit--return-window window))
     (pop-to-buffer buffer)))
 
 (provide 'pi-edit)

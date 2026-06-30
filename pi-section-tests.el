@@ -19,51 +19,51 @@
 (defmacro pi-with-root-section (&rest body)
   (declare (indent 0))
   `(with-temp-buffer
-     (pi-create-root-section)
+     (pi-section--create-root-section)
      ,@body))
 
 (defmacro pi-section-tests-with-demo-buffer (&rest body)
   (declare (indent 0))
   `(pi-with-root-section
-     (let* ((build (pi-new-section 'build pi-root-section))
-            (compile (pi-new-section 'compile build))
-            (tests (pi-new-section 'test build))
-            (unit-tests (pi-new-section 'unit-tests tests))
-            (integration-tests (pi-new-section 'integration-tests tests))
-            (logs (pi-new-section 'logs pi-root-section))
-            (server-log (pi-new-section 'server-log logs))
-            (worker-log (pi-new-section 'worker-log logs))
-            (deploy (pi-new-section 'deploy pi-root-section)))
-       (pi-insert-section build
+     (let* ((build (pi-section--new-section 'build pi-section--root-section))
+            (compile (pi-section--new-section 'compile build))
+            (tests (pi-section--new-section 'test build))
+            (unit-tests (pi-section--new-section 'unit-tests tests))
+            (integration-tests (pi-section--new-section 'integration-tests tests))
+            (logs (pi-section--new-section 'logs pi-section--root-section))
+            (server-log (pi-section--new-section 'server-log logs))
+            (worker-log (pi-section--new-section 'worker-log logs))
+            (deploy (pi-section--new-section 'deploy pi-section--root-section)))
+       (pi-section--insert-section build
          (insert "[-] Build\n"))
-       (pi-insert-section compile
+       (pi-section--insert-section compile
          (insert "  [-] Compile\n")
          (insert "      Compiling foo.c\n")
          (insert "      Compiling bar.c\n"))
-       (pi-insert-section tests
+       (pi-section--insert-section tests
          (insert "  [-] Tests\n"))
-       (pi-insert-section unit-tests
+       (pi-section--insert-section unit-tests
          (insert "      [-] Unit Tests\n")
          (insert "          test-auth ... ok\n")
          (insert "          test-db ... ok\n"))
-       (pi-insert-section integration-tests
+       (pi-section--insert-section integration-tests
          (insert "      [-] Integration Tests\n")
          (insert "          api-flow ... running\n"))
-       (pi-insert-section logs
+       (pi-section--insert-section logs
          (insert "[-] Logs\n"))
-       (pi-insert-section server-log
+       (pi-section--insert-section server-log
          (insert "  [-] Server\n")
          (insert "      Listening on :8080\n")
          (insert "      Connected client #42\n"))
-       (pi-insert-section worker-log
+       (pi-section--insert-section worker-log
          (insert "  [-] Worker\n")
          (insert "      Job started\n")
          (insert "      Job completed\n"))
-       (pi-insert-section deploy
+       (pi-section--insert-section deploy
          (insert "[-] Deploy\n")
          (insert "    Uploading artifacts...\n")
          (insert "    Restarting services...\n"))
-       (pi-append-section server-log
+       (pi-section--append-section server-log
          (insert "      Connected client #43\n")
          (insert "      Connected client #44\n")
          (insert "      Connected client #45\n"))
@@ -75,43 +75,43 @@
 
 (ert-deftest pi-section-create-root ()
   (pi-with-root-section
-    (should (pi-section-p pi-root-section))
-    (should (eq (pi-section-type pi-root-section) 'root))
-    (should (null (pi-section-parent pi-root-section)))
-    (should (null (pi-section-children pi-root-section)))
-    (should (= (pi-section-beginning pi-root-section) (point-min)))
-    (should (= (pi-section-end pi-root-section) (point-min)))))
+    (should (pi-section-p pi-section--root-section))
+    (should (eq (pi-section-type pi-section--root-section) 'root))
+    (should (null (pi-section-parent pi-section--root-section)))
+    (should (null (pi-section-children pi-section--root-section)))
+    (should (= (pi-section-beginning pi-section--root-section) (point-min)))
+    (should (= (pi-section-end pi-section--root-section) (point-min)))))
 
 (ert-deftest pi-section-new-child ()
   (pi-with-root-section
-    (let ((child (pi-new-section 'child pi-root-section)))
+    (let ((child (pi-section--new-section 'child pi-section--root-section)))
       (should (pi-section-p child))
       (should (eq (pi-section-type child) 'child))
-      (should (eq (pi-section-parent child) pi-root-section))
-      (should (memq child (pi-section-children pi-root-section))))))
+      (should (eq (pi-section-parent child) pi-section--root-section))
+      (should (memq child (pi-section-children pi-section--root-section))))))
 
 (ert-deftest pi-section-new-nested-children ()
   (pi-with-root-section
-    (let* ((build (pi-new-section 'build pi-root-section))
-           (compile (pi-new-section 'compile build)))
+    (let* ((build (pi-section--new-section 'build pi-section--root-section))
+           (compile (pi-section--new-section 'compile build)))
       (should (eq (pi-section-parent compile) build))
       (should (memq compile (pi-section-children build)))
-      (should (eq (pi-section-parent build) pi-root-section))
-      (should (memq build (pi-section-children pi-root-section))))))
+      (should (eq (pi-section-parent build) pi-section--root-section))
+      (should (memq build (pi-section-children pi-section--root-section))))))
 
 (ert-deftest pi-section-default-visibility ()
   (pi-with-root-section
-    (let ((child (pi-new-section 'child pi-root-section)))
-      (should (equal (pi-section-visibility child) pi-section-visibility-default))
+    (let ((child (pi-section--new-section 'child pi-section--root-section)))
+      (should (equal (pi-section-visibility child) pi-section--visibility-default))
       (should (eq (pi-section-visibility child) :autoshow)))))
 
 
-;; ─── pi-insert-section ─────────────────────────────────────────────────
+;; ─── pi-section--insert-section ─────────────────────────────────────────────────
 
 (ert-deftest pi-section-insert-sets-beginning-and-end ()
   (pi-with-root-section
-    (let ((build (pi-new-section 'build pi-root-section)))
-      (pi-insert-section build
+    (let ((build (pi-section--new-section 'build pi-section--root-section)))
+      (pi-section--insert-section build
         (insert "[-] Build\n"))
       (should (< (pi-section-beginning build) (pi-section-end build)))
       (should (= (pi-section-beginning build) 1))
@@ -119,56 +119,56 @@
 
 (ert-deftest pi-section-insert-propertizes-text ()
   (pi-with-root-section
-    (let ((build (pi-new-section 'build pi-root-section)))
-      (pi-insert-section build
+    (let ((build (pi-section--new-section 'build pi-section--root-section)))
+      (pi-section--insert-section build
         (insert "[-] Build\n"))
       (goto-char 1)
       (should (eq (get-text-property (point) 'pi-section) build)))))
 
 (ert-deftest pi-section-insert-updates-parent-end ()
   (pi-with-root-section
-    (let* ((build (pi-new-section 'build pi-root-section))
-           (compile (pi-new-section 'compile build)))
-      (pi-insert-section build
+    (let* ((build (pi-section--new-section 'build pi-section--root-section))
+           (compile (pi-section--new-section 'compile build)))
+      (pi-section--insert-section build
         (insert "[-] Build\n"))
-      (pi-insert-section compile
+      (pi-section--insert-section compile
         (insert "  [-] Compile\n"))
       (should (>= (pi-section-end build) (pi-section-end compile)))
-      (should (>= (pi-section-end pi-root-section) (pi-section-end build))))))
+      (should (>= (pi-section-end pi-section--root-section) (pi-section-end build))))))
 
 
-;; ─── pi-append-section ─────────────────────────────────────────────────
+;; ─── pi-section--append-section ─────────────────────────────────────────────────
 
 (ert-deftest pi-section-append-extends-existing ()
   (pi-with-root-section
-    (let ((log (pi-new-section 'log pi-root-section)))
-      (pi-insert-section log
+    (let ((log (pi-section--new-section 'log pi-section--root-section)))
+      (pi-section--insert-section log
         (insert "[-] Log\n"))
       (let ((original-end (pi-section-end log)))
-        (pi-append-section log
+        (pi-section--append-section log
           (insert "extra line\n"))
         (should (> (pi-section-end log) original-end))))))
 
 (ert-deftest pi-section-append-adds-text-properties ()
   (pi-with-root-section
-    (let ((log (pi-new-section 'log pi-root-section)))
-      (pi-insert-section log
+    (let ((log (pi-section--new-section 'log pi-section--root-section)))
+      (pi-section--insert-section log
         (insert "[-] Log\n"))
-      (pi-append-section log
+      (pi-section--append-section log
         (insert "extra line\n"))
       (goto-char (point-max))
       (should (eq (get-text-property (1- (point)) 'pi-section) log)))))
 
 
-;; ─── pi-replace-section ────────────────────────────────────────────────
+;; ─── pi-section--replace-section ────────────────────────────────────────────────
 
 (ert-deftest pi-section-replace-content ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 18)
-    (let* ((worker (pi-current-section))
+    (let* ((worker (pi-section--current-section))
            (old-end (marker-position (pi-section-end worker))))
-      (pi-replace-section worker
+      (pi-section--replace-section worker
         (insert "  [-] Worker\n")
         (insert "      Restarted\n"))
       (should (eq (pi-section-type worker) 'worker-log))
@@ -182,10 +182,10 @@
 (ert-deftest pi-section-replace-clear-children ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let* ((build (pi-current-section))
+    (let* ((build (pi-section--current-section))
            (old-children (pi-section-children build)))
       (should old-children)
-      (pi-replace-section build
+      (pi-section--replace-section build
         (insert "[-] Build\n"))
       (should (null (pi-section-children build))))))
 
@@ -193,8 +193,8 @@
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 12)
-    (let ((worker (pi-current-section)))
-      (pi-replace-section worker
+    (let ((worker (pi-section--current-section)))
+      (pi-section--replace-section worker
         (insert "  [-] Worker\n")
         (insert "      Restarted\n"))
       (goto-char (pi-section-beginning worker))
@@ -206,11 +206,11 @@
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 10)
-    (let* ((logs (pi-current-section))
-           (worker (pi-find-section '(logs worker-log) pi-root-section))
-           (server (pi-find-section '(logs server-log) pi-root-section)))
+    (let* ((logs (pi-section--current-section))
+           (worker (pi-section--find-section '(logs worker-log) pi-section--root-section))
+           (server (pi-section--find-section '(logs server-log) pi-section--root-section)))
       (should worker)
-      (pi-replace-section worker
+      (pi-section--replace-section worker
         (insert "  [-] Worker\n"))
       ;; parent end should still cover the remaining server-log content
       (should (>= (pi-section-end logs) (pi-section-end server))))))
@@ -218,175 +218,175 @@
 (ert-deftest pi-section-replace-clear-multiple-children ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((tests (pi-find-section '(build test) pi-root-section)))
+    (let ((tests (pi-section--find-section '(build test) pi-section--root-section)))
       (should (pi-section-children tests))
-      (pi-replace-section tests
+      (pi-section--replace-section tests
         (insert "  [-] Tests\n"))
       (should (null (pi-section-children tests))))))
 
 
-;; ─── pi-current-section / pi-section-at ────────────────────────────────
+;; ─── pi-section--current-section / pi-section--section-at ────────────────────────────────
 
-(ert-deftest pi-section-at-returns-correct-section ()
+(ert-deftest pi-section--section-at-returns-correct-section ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((s (pi-section-at (point))))
+    (let ((s (pi-section--section-at (point))))
       (should (pi-section-p s))
       (should (eq (pi-section-type s) 'build)))))
 
 (ert-deftest pi-section-current-returns-correct-section ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (should (eq (pi-section-type (pi-current-section)) 'build))))
+    (should (eq (pi-section-type (pi-section--current-section)) 'build))))
 
-(ert-deftest pi-section-at-on-different-lines ()
+(ert-deftest pi-section--section-at-on-different-lines ()
   (pi-section-tests-with-demo-buffer
     ;; Server log section
     (goto-char (point-min))
     (forward-line 10)
-    (should (eq (pi-section-type (pi-current-section)) 'logs))
+    (should (eq (pi-section-type (pi-section--current-section)) 'logs))
     ;; Worker log section
     (goto-char (point-min))
     (forward-line 17)
-    (should (eq (pi-section-type (pi-current-section)) 'worker-log))))
+    (should (eq (pi-section-type (pi-section--current-section)) 'worker-log))))
 
 
-;; ─── pi-section-path ───────────────────────────────────────────────────
+;; ─── pi-section--section-path ───────────────────────────────────────────────────
 
-(ert-deftest pi-section-path-root ()
+(ert-deftest pi-section--section-path-root ()
   (pi-section-tests-with-demo-buffer
-    (let ((root pi-root-section))
+    (let ((root pi-section--root-section))
       (while (pi-section-parent root)
         (setq root (pi-section-parent root)))
-      (should (equal (pi-section-path root) '())))))
+      (should (equal (pi-section--section-path root) '())))))
 
-(ert-deftest pi-section-path-nested ()
+(ert-deftest pi-section--section-path-nested ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 5)
-    (let ((s (pi-current-section)))
-      (should (equal (pi-section-path s)
+    (let ((s (pi-section--current-section)))
+      (should (equal (pi-section--section-path s)
                      '(build test unit-tests))))))
 
 
-;; ─── pi-find-section ───────────────────────────────────────────────────
+;; ─── pi-section--find-section ───────────────────────────────────────────────────
 
-(ert-deftest pi-find-section-by-path ()
+(ert-deftest pi-section--find-section-by-path ()
   (pi-section-tests-with-demo-buffer
-    (let* ((found (pi-find-section '(build compile) pi-root-section)))
+    (let* ((found (pi-section--find-section '(build compile) pi-section--root-section)))
       (should found)
       (should (eq (pi-section-type found) 'compile)))))
 
-(ert-deftest pi-find-section-non-existent ()
+(ert-deftest pi-section--find-section-non-existent ()
   (pi-section-tests-with-demo-buffer
-    (let* ((root pi-root-section)
-           (found (pi-find-section '(build non-existent) root)))
+    (let* ((root pi-section--root-section)
+           (found (pi-section--find-section '(build non-existent) root)))
       (should (null found)))))
 
-(ert-deftest pi-find-section-empty-path ()
+(ert-deftest pi-section--find-section-empty-path ()
   (pi-section-tests-with-demo-buffer
-    (let* ((root pi-root-section)
-           (found (pi-find-section '() root)))
+    (let* ((root pi-section--root-section)
+           (found (pi-section--find-section '() root)))
       (should (eq found root)))))
 
 
-;; ─── pi-next-section / pi-prev-section ─────────────────────────────────
+;; ─── pi-section--next-section / pi-section--prev-section ─────────────────────────────────
 
-(ert-deftest pi-next-section-sibling ()
+(ert-deftest pi-section--next-section-sibling ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let* ((build (pi-current-section))
-           (next (pi-next-section build)))
+    (let* ((build (pi-section--current-section))
+           (next (pi-section--next-section build)))
       (should next)
       (should (eq (pi-section-type next) 'logs)))))
 
-(ert-deftest pi-next-section-goes-to-parent ()
+(ert-deftest pi-section--next-section-goes-to-parent ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 8)
-    (let* ((unit-tests (pi-current-section))
-           (next (pi-next-section unit-tests)))
+    (let* ((unit-tests (pi-section--current-section))
+           (next (pi-section--next-section unit-tests)))
       (should next)
       (should (eq (pi-section-type next) 'logs)))))
 
-(ert-deftest pi-next-section-last ()
+(ert-deftest pi-section--next-section-last ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-max))
     (forward-line -1)
-    (let ((section (pi-section-at (point))))
-      (should (null (pi-next-section section))))))
+    (let ((section (pi-section--section-at (point))))
+      (should (null (pi-section--next-section section))))))
 
-(ert-deftest pi-prev-section-sibling ()
+(ert-deftest pi-section--prev-section-sibling ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 10)
-    (let* ((logs (pi-current-section))
-           (prev (pi-prev-section logs)))
+    (let* ((logs (pi-section--current-section))
+           (prev (pi-section--prev-section logs)))
       (should prev)
       (should (eq (pi-section-type prev) 'integration-tests)))))
 
-(ert-deftest pi-prev-section-goes-to-parent ()
+(ert-deftest pi-section--prev-section-goes-to-parent ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 1)
-    (let* ((compile (pi-current-section))
-           (prev (pi-prev-section compile)))
+    (let* ((compile (pi-section--current-section))
+           (prev (pi-section--prev-section compile)))
       (should prev)
       (should (eq (pi-section-type prev) 'build)))))
 
-;; ─── pi-delete-section ────────────────────────────────────────────
+;; ─── pi-section--delete-section ────────────────────────────────────────────
 
 (ert-deftest pi-section-delete-removes-content ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((build (pi-current-section)))
-      (pi-delete-section build)
+    (let ((build (pi-section--current-section)))
+      (pi-section--delete-section build)
       (should (not (search-forward "[-] Build" nil t)))
       (should (looking-at (regexp-quote "[-] Logs\n"))))))
 
 (ert-deftest pi-section-delete-removes-from-parent-children ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((build (pi-current-section)))
-      (pi-delete-section build)
-      (should (not (memq build (pi-section-children pi-root-section))))
+    (let ((build (pi-section--current-section)))
+      (pi-section--delete-section build)
+      (should (not (memq build (pi-section-children pi-section--root-section))))
       ;; other root children remain
       (let ((remaining-types
-             (mapcar #'pi-section-type (pi-section-children pi-root-section))))
+             (mapcar #'pi-section-type (pi-section-children pi-section--root-section))))
         (should (equal remaining-types '(logs deploy)))))))
 
 (ert-deftest pi-section-delete-updates-parent-end ()
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let* ((build (pi-current-section))
-           (old-parent-end (marker-position (pi-section-end pi-root-section)))
+    (let* ((build (pi-section--current-section))
+           (old-parent-end (marker-position (pi-section-end pi-section--root-section)))
            (build-size (- (marker-position (pi-section-end build))
                           (pi-section-beginning build))))
-      (pi-delete-section build)
-      (should (= (marker-position (pi-section-end pi-root-section))
+      (pi-section--delete-section build)
+      (should (= (marker-position (pi-section-end pi-section--root-section))
                  (- old-parent-end build-size))))))
 
 (ert-deftest pi-section-delete-middle-child ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 10)
-    (let ((logs (pi-current-section)))
-      (pi-delete-section logs)
+    (let ((logs (pi-section--current-section)))
+      (pi-section--delete-section logs)
       (goto-char (point-min))
       (should (looking-at (regexp-quote "[-] Build\n")))
       (forward-line 10)
       (should (looking-at (regexp-quote "[-] Deploy\n")))
       (let ((remaining-types
-             (mapcar #'pi-section-type (pi-section-children pi-root-section))))
+             (mapcar #'pi-section-type (pi-section-children pi-section--root-section))))
         (should (equal remaining-types '(build deploy)))))))
 
 (ert-deftest pi-section-delete-leaf-child ()
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 1)
-    (let* ((compile (pi-current-section))
+    (let* ((compile (pi-section--current-section))
            (build (pi-section-parent compile)))
-      (pi-delete-section compile)
+      (pi-section--delete-section compile)
       (should (not (memq compile (pi-section-children build))))
       (goto-char (pi-section-beginning build))
       (should (looking-at (regexp-quote "[-] Build\n")))
@@ -397,20 +397,20 @@
   (pi-section-tests-with-demo-buffer
     (goto-char (point-min))
     (forward-line 10)
-    (let ((logs (pi-current-section)))
-      (pi-delete-section logs)
+    (let ((logs (pi-section--current-section)))
+      (pi-section--delete-section logs)
       (goto-char (point-min))
       ;; server and worker content should be gone
       (should (not (search-forward "Connected client" nil t)))
       (should (not (search-forward "Job" nil t))))))
 
 
-;; ─── pi-update-section-end ─────────────────────────────────────────────
+;; ─── pi-section--update-section-end ─────────────────────────────────────────────
 
-(ert-deftest pi-update-section-end-expands ()
+(ert-deftest pi-section--update-section-end-expands ()
   (pi-with-root-section
-    (let ((child (pi-new-section 'child pi-root-section)))
-      (pi-insert-section child
+    (let ((child (pi-section--new-section 'child pi-section--root-section)))
+      (pi-section--insert-section child
         (insert "  [-] Compile\n")
         (insert "      Compiling foo.c\n")
         (insert "      Compiling bar.c\n"))
@@ -418,29 +418,29 @@
       (setf (pi-section-end child) (point-min-marker))
       (let ((m (make-marker)))
         (set-marker m 10)
-        (pi-update-section-end child m)
+        (pi-section--update-section-end child m)
         (should (= (pi-section-end child) 10))))))
 
-(ert-deftest pi-update-section-end-propagates-to-parent ()
+(ert-deftest pi-section--update-section-end-propagates-to-parent ()
   (pi-with-root-section
-    (let ((child (pi-new-section 'child pi-root-section)))
-      (pi-insert-section child
+    (let ((child (pi-section--new-section 'child pi-section--root-section)))
+      (pi-section--insert-section child
         (insert "  [-] Compile\n")
         (insert "      Compiling foo.c\n")
         (insert "      Compiling bar.c\n"))
       (setf (pi-section-beginning child) (set-marker (make-marker) 1))
       (setf (pi-section-end child) (set-marker (make-marker) 5))
-      (setf (pi-section-beginning pi-root-section) (set-marker (make-marker) 1))
-      (setf (pi-section-end pi-root-section) (set-marker (make-marker) 5))
+      (setf (pi-section-beginning pi-section--root-section) (set-marker (make-marker) 1))
+      (setf (pi-section-end pi-section--root-section) (set-marker (make-marker) 5))
       (let ((m (make-marker)))
         (set-marker m 20)
-        (pi-update-section-end child m)
-        (should (= (pi-section-end pi-root-section) 20))))))
+        (pi-section--update-section-end child m)
+        (should (= (pi-section-end pi-section--root-section) 20))))))
 
-(ert-deftest pi-update-section-end-does-not-shrink ()
+(ert-deftest pi-section--update-section-end-does-not-shrink ()
   (pi-with-root-section
-    (let ((child (pi-new-section 'child pi-root-section)))
-      (pi-insert-section child
+    (let ((child (pi-section--new-section 'child pi-section--root-section)))
+      (pi-section--insert-section child
         (insert "  [-] Compile\n")
         (insert "      Compiling foo.c\n")
         (insert "      Compiling bar.c\n"))
@@ -448,42 +448,42 @@
       (setf (pi-section-end child) (set-marker (make-marker) 20))
       (let ((m (make-marker)))
         (set-marker m 5)
-        (pi-update-section-end child m)
+        (pi-section--update-section-end child m)
         (should (= (pi-section-end child) 20))))))
 
 
-;; ─── pi-section-set-visibility / pi-toggle-section ─────────────────────
+;; ─── pi-section--set-visibility / pi-toggle-section ─────────────────────
 
-(ert-deftest pi-section-set-visibility-hides ()
+(ert-deftest pi-section--set-visibility-hides ()
   "Setting visibility to :hide or :autohide makes content invisible."
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((build (pi-current-section)))
-      (pi-section-set-visibility build :hide)
+    (let ((build (pi-section--current-section)))
+      (pi-section--set-visibility build :hide)
       (goto-char (pi-section-beginning build))
       (forward-line 1)
       (should (invisible-p (point)))
-      (pi-section-set-visibility build :autohide)
+      (pi-section--set-visibility build :autohide)
       (should (invisible-p (point))))))
 
-(ert-deftest pi-section-set-visibility-shows ()
+(ert-deftest pi-section--set-visibility-shows ()
   "Setting visibility to :show or :autoshow makes content visible."
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((build (pi-current-section)))
-      (pi-section-set-visibility build :hide)
-      (pi-section-set-visibility build :show)
+    (let ((build (pi-section--current-section)))
+      (pi-section--set-visibility build :hide)
+      (pi-section--set-visibility build :show)
       (goto-char (pi-section-beginning build))
       (forward-line 1)
       (should (not (invisible-p (point))))
-      (pi-section-set-visibility build :autoshow)
+      (pi-section--set-visibility build :autoshow)
       (should (not (invisible-p (point)))))))
 
 (ert-deftest pi-toggle-section-toggles-visibility ()
   "Toggle transitions: :autoshow->:hide, :autohide->:show, :show->:hide, :hide->:show."
   (pi-section-tests-with-demo-buffer
     (goto-char 1)
-    (let ((build (pi-current-section)))
+    (let ((build (pi-section--current-section)))
       (should (eq (pi-section-visibility build) :autoshow))
       ;; :autoshow -> :hide
       (pi-toggle-section)
@@ -498,7 +498,7 @@
       (pi-toggle-section)
       (should (eq (pi-section-visibility build) :show))
       ;; :autohide -> :show
-      (pi-section-set-visibility build :autohide)
+      (pi-section--set-visibility build :autohide)
       (should (eq (pi-section-visibility build) :autohide))
       (pi-toggle-section)
       (should (eq (pi-section-visibility build) :show)))))
@@ -508,10 +508,10 @@
 
 (ert-deftest pi-section-autohide-nil-count ()
   (pi-with-root-section
-    (let ((a (pi-new-section 'a pi-root-section))
-          (b (pi-new-section 'b pi-root-section)))
-      (pi-insert-section a (insert "[-] A\n"))
-      (pi-insert-section b (insert "[-] B\n"))
+    (let ((a (pi-section--new-section 'a pi-section--root-section))
+          (b (pi-section--new-section 'b pi-section--root-section)))
+      (pi-section--insert-section a (insert "[-] A\n"))
+      (pi-section--insert-section b (insert "[-] B\n"))
       (let ((pi-section-autohide-count nil))
         (pi-section-autohide)
         (should (eq (pi-section-visibility a) :autoshow))
@@ -519,14 +519,14 @@
 
 (ert-deftest pi-section-autohide-skips-middle-section-at-point ()
   (pi-with-root-section
-    (let ((a (pi-new-section 'a pi-root-section))
-          (b (pi-new-section 'b pi-root-section))
-          (c (pi-new-section 'c pi-root-section))
-          (d (pi-new-section 'd pi-root-section)))
-      (pi-insert-section a (insert "[-] A\n"))
-      (pi-insert-section b (insert "[-] B\n"))
-      (pi-insert-section c (insert "[-] C\n"))
-      (pi-insert-section d (insert "[-] D\n"))
+    (let ((a (pi-section--new-section 'a pi-section--root-section))
+          (b (pi-section--new-section 'b pi-section--root-section))
+          (c (pi-section--new-section 'c pi-section--root-section))
+          (d (pi-section--new-section 'd pi-section--root-section)))
+      (pi-section--insert-section a (insert "[-] A\n"))
+      (pi-section--insert-section b (insert "[-] B\n"))
+      (pi-section--insert-section c (insert "[-] C\n"))
+      (pi-section--insert-section d (insert "[-] D\n"))
       (let ((pi-section-autohide-count 2))
         (goto-char (pi-section-beginning b))
         (pi-section-autohide)
@@ -537,13 +537,13 @@
 
 (ert-deftest pi-section-autohide-skips-non-autoshow ()
   (pi-with-root-section
-    (let ((a (pi-new-section 'a pi-root-section))
-          (b (pi-new-section 'b pi-root-section))
-          (c (pi-new-section 'c pi-root-section)))
-      (pi-insert-section a (insert "[-] A\n"))
-      (pi-insert-section b (insert "[-] B\n"))
-      (pi-insert-section c (insert "[-] C\n"))
-      (pi-section-set-visibility a :show)
+    (let ((a (pi-section--new-section 'a pi-section--root-section))
+          (b (pi-section--new-section 'b pi-section--root-section))
+          (c (pi-section--new-section 'c pi-section--root-section)))
+      (pi-section--insert-section a (insert "[-] A\n"))
+      (pi-section--insert-section b (insert "[-] B\n"))
+      (pi-section--insert-section c (insert "[-] C\n"))
+      (pi-section--set-visibility a :show)
       (let ((pi-section-autohide-count 1))
         (pi-section-autohide)
         (should (eq (pi-section-visibility a) :show))

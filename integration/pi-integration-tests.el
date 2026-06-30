@@ -54,7 +54,7 @@
      (sleep-for 2)
      ,@body
      (pi-drain-process-output)
-     (pi-with-chat-buffer
+     (pi--with-chat-buffer
        (let* ((tape-file (expand-file-name (concat ,scenario ".txt") pi-tape-directory))
               (current-text (pi-normalize-buffer-text (buffer-substring (point-min) (point-max))))
               (fixture-mode (pi-fixture-mode)))
@@ -84,11 +84,11 @@
 (defun pi-drain-process-output (&optional timeout)
   (let* ((timeout (or timeout 120))
          (start (current-time))
-         (buffer (pi-current-chat)))
+         (buffer (pi--current-chat)))
     (sleep-for pi-settle-time)
     (when buffer
       (with-current-buffer buffer
-        (while (and pi-agent-state
+        (while (and pi--agent-state
                     (< (time-to-seconds (time-subtract (current-time) start)) timeout))
           (accept-process-output nil pi-poll-interval))))
     (sleep-for pi-settle-time)))
@@ -235,7 +235,7 @@
       (let ((start (point-min))
             (end (point-max)))
         (pi-send-region start end)))
-    (pi-send-prompt-and-wait (widget-value pi-prompt-widget))))
+    (pi-send-prompt-and-wait (widget-value pi--prompt-widget))))
 
 (ert-deftest pi-extension-ui ()
   (pi-with-integration-project "extension-ui"
@@ -261,7 +261,7 @@
 
     (pi-send-prompt-and-wait "/rpc-set-editor-text")
 
-    (pi-send-prompt-and-wait (widget-value pi-prompt-widget))
+    (pi-send-prompt-and-wait (widget-value pi--prompt-widget))
 
     (pi-send-prompt "/rpc-editor")
     (pi-with-editor-buffer

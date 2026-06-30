@@ -43,19 +43,19 @@ Increase or decrease this value to adjust spacing between sections."
   :type 'string
   :group 'pi)
 
-(defvar pi-section-visibility-default :autoshow)
-(defvar-local pi-root-section nil)
+(defvar pi-section--visibility-default :autoshow)
+(defvar-local pi-section--root-section nil)
 
-(defun pi-section-visible-p (section)
+(defun pi-section--visible-p (section)
   (memq (pi-section-visibility section) '(:autoshow :show)))
 
-(defun pi-section-hidden-p (section)
+(defun pi-section--hidden-p (section)
   (memq (pi-section-visibility section) '(:autohide :hide)))
 
-(defun pi-section-user-toggled-p (section)
+(defun pi-section--user-toggled-p (section)
   (memq (pi-section-visibility section) '(:show :hide)))
 
-(defun pi-prefix-p (prefix list)
+(defun pi-section--prefix-p (prefix list)
   "Return non-nil if PREFIX is a prefix of LIST.
 PREFIX and LIST should both be lists.
 
@@ -63,30 +63,30 @@ If the car of PREFIX is the symbol '*, then return non-nil if the cdr of PREFIX
 is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
   (or (null prefix)
       (if (eq (car prefix) '*)
-          (or (pi-prefix-p (cdr prefix) list)
+          (or (pi-section--prefix-p (cdr prefix) list)
               (and (not (null list))
-                   (pi-prefix-p prefix (cdr list))))
+                   (pi-section--prefix-p prefix (cdr list))))
         (and (not (null list))
              (equal (car prefix) (car list))
-             (pi-prefix-p (cdr prefix) (cdr list))))))
+             (pi-section--prefix-p (cdr prefix) (cdr list))))))
 
 
 (cl-defstruct pi-section
   parent children beginning end type visibility info padding)
 
-(defun pi-set-section-info (section info)
+(defun pi-section--set-section-info (section info)
   (setf (pi-section-info section) info))
 
-(defun pi-advance-pointer-maker (marker)
+(defun pi-section--advance-pointer-maker (marker)
   (let ((m (copy-marker marker)))
     (set-marker-insertion-type m t)
     m))
 
-(defun pi-new-section (type parent &rest args)
+(defun pi-section--new-section (type parent &rest args)
   (let* ((padding (or (plist-get args :padding) pi-section-padding))
          (s (make-pi-section :parent parent
                              :type type
-                             :visibility pi-section-visibility-default
+                             :visibility pi-section--visibility-default
                              :padding padding)))
     (when parent
       (setf (pi-section-children parent)
@@ -94,16 +94,16 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
                    (list s))))
     s))
 
-(defun pi-create-root-section ()
-  (when pi-root-section
+(defun pi-section--create-root-section ()
+  (when pi-section--root-section
     (error "Root section already exists"))
-  (let ((root (pi-new-section 'root nil)))
+  (let ((root (pi-section--new-section 'root nil)))
     (setf (pi-section-beginning root) (point-min))
     (setf (pi-section-end root) (point-min-marker))
-    (setq pi-root-section root)
+    (setq pi-section--root-section root)
     root))
 
-(defmacro pi-insert-section (section &rest body)
+(defmacro pi-section--insert-section (section &rest body)
   (declare (indent 1)
            (debug (symbolp body)))
   (let ((s (make-symbol "*section*")))
@@ -112,21 +112,21 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
        (setf (pi-section-beginning ,s) (point-marker))
        ,@body
        (insert (pi-section-padding ,s))
-       (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
-       (pi-update-section-end ,s (point-marker))
-       (pi-propertize-section ,s)
+       (setf (pi-section-beginning ,s) (pi-section--advance-pointer-maker (pi-section-beginning ,s)))
+       (pi-section--update-section-end ,s (point-marker))
+       (pi-section--propertize-section ,s)
        ,s)))
 
-(defmacro pi-create-section (type parent &rest body)
+(defmacro pi-section--create-section (type parent &rest body)
   (declare (indent 2)
            (debug (symbolp symbolp body)))
   (let ((s (make-symbol "*section*")))
-    `(let* ((,s (pi-new-section ,type ,parent)))
-       (pi-insert-section ,s
+    `(let* ((,s (pi-section--new-section ,type ,parent)))
+       (pi-section--insert-section ,s
          ,@body)
        ,s)))
 
-(defmacro pi-append-section (section &rest body)
+(defmacro pi-section--append-section (section &rest body)
   (declare (indent 1)
            (debug (symbolp body)))
   (let ((s (make-symbol "*section*")))
@@ -136,12 +136,12 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
        (goto-char (- (pi-section-end ,s) (length (pi-section-padding ,s))))
        ,@body
        (forward-char (length (pi-section-padding ,s)))
-       (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
-       (pi-update-section-end ,s (point-marker))
-       (pi-propertize-section ,s)
+       (setf (pi-section-beginning ,s) (pi-section--advance-pointer-maker (pi-section-beginning ,s)))
+       (pi-section--update-section-end ,s (point-marker))
+       (pi-section--propertize-section ,s)
        ,s)))
 
-(defmacro pi-replace-section (section &rest body)
+(defmacro pi-section--replace-section (section &rest body)
   (declare (indent 1)
            (debug (symbolp body)))
   (let ((s (make-symbol "*section*")))
@@ -152,14 +152,14 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
        (setf (pi-section-beginning ,s) (point-marker))
        ,@body
        (insert (pi-section-padding ,s))
-       (setf (pi-section-beginning ,s) (pi-advance-pointer-maker (pi-section-beginning ,s)))
-       (pi-update-section-end ,s (point-marker))
-       (pi-propertize-section ,s)
-       (when (pi-section-hidden-p ,s)
-         (pi-section-set-visibility ,s (pi-section-visibility ,s)))
+       (setf (pi-section-beginning ,s) (pi-section--advance-pointer-maker (pi-section-beginning ,s)))
+       (pi-section--update-section-end ,s (point-marker))
+       (pi-section--propertize-section ,s)
+       (when (pi-section--hidden-p ,s)
+         (pi-section--set-visibility ,s (pi-section-visibility ,s)))
        ,s)))
 
-(defun pi-delete-section (section)
+(defun pi-section--delete-section (section)
   (let ((beg (pi-section-beginning section))
         (end (pi-section-end section))
         (parent (pi-section-parent section)))
@@ -167,33 +167,33 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
     (when parent
       (setf (pi-section-children parent)
             (delq section (pi-section-children parent)))
-      (pi-update-section-end parent beg))))
+      (pi-section--update-section-end parent beg))))
 
-(defmacro pi-create-or-replace-section (section type parent &rest body)
+(defmacro pi-section--create-or-replace-section (section type parent &rest body)
   (declare (indent 3)
            (debug (symbolp symbolp symbolp body)))
   `(if ,section
-       (pi-replace-section ,section ,@body)
-     (pi-create-section ,type ,parent ,@body)))
+       (pi-section--replace-section ,section ,@body)
+     (pi-section--create-section ,type ,parent ,@body)))
 
-(defun pi-update-section-end (section end)
+(defun pi-section--update-section-end (section end)
   (when section
     (let ((current-end (pi-section-end section)))
       (when (or (null current-end)
                 (<= (marker-position current-end) (marker-position end)))
         (setf (pi-section-end section) end)
         ;; rebuild the overlay if the section is hidden
-        (when (pi-section-hidden-p section)
-          (pi-section-set-visibility section (pi-section-visibility section)))))
-    (pi-update-section-end (pi-section-parent section) end)))
+        (when (pi-section--hidden-p section)
+          (pi-section--set-visibility section (pi-section-visibility section)))))
+    (pi-section--update-section-end (pi-section-parent section) end)))
 
-(defun pi-propertize-section (section)
+(defun pi-section--propertize-section (section)
   "Add text-property needed for SECTION."
   (put-text-property (pi-section-beginning section)
                      (pi-section-end section)
                      'pi-section section))
 
-(defun pi-find-section (path top)
+(defun pi-section--find-section (path top)
   "Find the section at the path PATH in subsection of section TOP."
   (if (null path)
       top
@@ -202,31 +202,31 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
                                 (pi-section-type (car secs)))))
         (setq secs (cdr secs)))
       (and (car secs)
-           (pi-find-section (cdr path) (car secs))))))
+           (pi-section--find-section (cdr path) (car secs))))))
 
-(defun pi-section-path (section)
+(defun pi-section--section-path (section)
   "Return the path of SECTION."
   (if (or (not section) (not (pi-section-parent section)))
       '()
-    (append (pi-section-path (pi-section-parent section))
+    (append (pi-section--section-path (pi-section-parent section))
             (list (pi-section-type section)))))
 
-(defun pi-current-section ()
+(defun pi-section--current-section ()
   "Return the pi section at point."
-  (pi-section-at (point)))
+  (pi-section--section-at (point)))
 
-(defun pi-section-at (pos)
+(defun pi-section--section-at (pos)
   "Return the pi section at position POS."
   (get-text-property pos 'pi-section))
 
-(defun pi-find-section-after (pos secs)
+(defun pi-section--find-section-after (pos secs)
   "Find the first section that begins after POS in the list SECS."
   (while (and secs
               (not (> (pi-section-beginning (car secs)) pos)))
     (setq secs (cdr secs)))
   (car secs))
 
-(defun pi-find-section-before (pos secs)
+(defun pi-section--find-section-before (pos secs)
   "Find the last section that begins before POS in the list SECS."
   (let ((prev nil))
     (while (and secs
@@ -235,39 +235,39 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
       (setq secs (cdr secs)))
     prev))
 
-(defun pi-next-section (section)
+(defun pi-section--next-section (section)
   "Return the section that is after SECTION."
   (let ((parent (pi-section-parent section)))
     (if parent
         (let ((next (cadr (memq section
                                 (pi-section-children parent)))))
           (or next
-              (pi-next-section parent))))))
+              (pi-section--next-section parent))))))
 
 (defun pi-goto-next-section ()
   "Go to the next pi section."
   (interactive)
-  (let* ((section (pi-current-section))
+  (let* ((section (pi-section--current-section))
          (next (and section
-                    (or (and (pi-section-visible-p section)
+                    (or (and (pi-section--visible-p section)
                              (pi-section-children section)
-                             (pi-find-section-after (point)
-                                                    (pi-section-children
-                                                     section)))
-                        (pi-next-section section)))))
+                             (pi-section--find-section-after (point)
+                                                             (pi-section-children
+                                                              section)))
+                        (pi-section--next-section section)))))
     (cond
      (next
       (goto-char (pi-section-beginning next)))
      (t (message "No next section")))))
 
-(defun pi-prev-section (section)
+(defun pi-section--prev-section (section)
   "Return the section that is before SECTION."
   (let ((parent (pi-section-parent section)))
     (if parent
         (let ((prev (cadr (memq section
                                 (reverse (pi-section-children parent))))))
           (cond (prev
-                 (while (and (pi-section-visible-p prev)
+                 (while (and (pi-section--visible-p prev)
                              (pi-section-children prev))
                    (setq prev (car (reverse (pi-section-children prev)))))
                  prev)
@@ -277,44 +277,44 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
 (defun pi-goto-previous-section ()
   "Goto the previous pi section."
   (interactive)
-  (let ((section (pi-current-section)))
+  (let ((section (pi-section--current-section)))
     (cond
      ((null section)
-      (if (and pi-root-section
-               (not (null (pi-section-children pi-root-section))))
-          (goto-char (pi-section-beginning (car (last (pi-section-children pi-root-section)))))
+      (if (and pi-section--root-section
+               (not (null (pi-section-children pi-section--root-section))))
+          (goto-char (pi-section-beginning (car (last (pi-section-children pi-section--root-section)))))
         (message "No previous section")))
      ((= (point) (pi-section-beginning section))
-      (let ((prev (pi-prev-section (pi-current-section))))
+      (let ((prev (pi-section--prev-section (pi-section--current-section))))
         (if prev
             (goto-char (pi-section-beginning prev))
           (message "No previous section"))))
      (t
-      (let ((prev (pi-find-section-before (point)
-                                          (pi-section-children
-                                           section))))
+      (let ((prev (pi-section--find-section-before (point)
+                                                   (pi-section-children
+                                                    section))))
         (goto-char (pi-section-beginning (or prev section)))
         (goto-char (pi-section-beginning (or prev section))))))))
 
 (defun pi-goto-last-section ()
-  "Go to the last child section of pi-root-section."
+  "Go to the last child section of pi-section--root-section."
   (interactive)
-  (if (and pi-root-section
-           (pi-section-children pi-root-section))
+  (if (and pi-section--root-section
+           (pi-section-children pi-section--root-section))
       (goto-char (pi-section-beginning
-                  (car (last (pi-section-children pi-root-section)))))
+                  (car (last (pi-section-children pi-section--root-section)))))
     (message "No sections")))
 
-(defun pi-section-isearch-open (ov)
+(defun pi-section--isearch-open (ov)
   (when-let ((section
               (get-text-property (overlay-start ov) 'pi-section))
              (parent (pi-section-parent section)))
-    (while (and parent (not (eq parent pi-root-section)))
+    (while (and parent (not (eq parent pi-section--root-section)))
       (setq section (pi-section-parent section))
       (setq parent (pi-section-parent section)))
-    (pi-section-set-visibility section :show)))
+    (pi-section--set-visibility section :show)))
 
-(defun pi-section-set-visibility (section visibility)
+(defun pi-section--set-visibility (section visibility)
   "Set the visibility state of SECTION.
 
 VISIBILITY can be one of:
@@ -333,52 +333,52 @@ VISIBILITY can be one of:
     ;; Remove any existing hide overlays.
     (remove-overlays beg end 'pi-section-hidden t)
 
-    (when (and (pi-section-hidden-p section) (< beg end))
+    (when (and (pi-section--hidden-p section) (< beg end))
       (let ((ov (make-overlay beg end)))
         (overlay-put ov 'pi-section-hidden t)
         (overlay-put ov 'evaporate t)
         (overlay-put ov 'invisible t)
         (overlay-put ov 'isearch-open-invisible
-                     #'pi-section-isearch-open))))
+                     #'pi-section--isearch-open))))
 
-  (when (pi-section-visible-p section)
+  (when (pi-section--visible-p section)
     (dolist (child (pi-section-children section))
-      (pi-section-set-visibility child
-                                 (pi-section-visibility child)))))
+      (pi-section--set-visibility child
+                                  (pi-section-visibility child)))))
 
 (defun pi-toggle-section ()
   "Toggle visibility of current section."
   (interactive)
-  (when-let (section (pi-current-section))
+  (when-let (section (pi-section--current-section))
     (when (pi-section-parent section)
       (goto-char (pi-section-beginning section))
-      (if (pi-section-visible-p section)
-          (pi-section-set-visibility section :hide)
-        (pi-section-set-visibility section :show)))))
+      (if (pi-section--visible-p section)
+          (pi-section--set-visibility section :hide)
+        (pi-section--set-visibility section :show)))))
 
 (defun pi-section-autohide ()
   (interactive)
   (when-let* ((count pi-section-autohide-count)
-              (children (pi-section-children pi-root-section)))
+              (children (pi-section-children pi-section--root-section)))
     (let ((hide-count (max 0 (- (length children) count))))
       (dolist (child (seq-take children hide-count))
         (when (and (eq (pi-section-visibility child) :autoshow)
                    (not (and (>= (point) (pi-section-beginning child))
                              (< (point) (pi-section-end child)))))
-          (pi-section-set-visibility child :autohide))))))
+          (pi-section--set-visibility child :autohide))))))
 
 (defun pi-section-show-level-1-all ()
   "Collapse all the sections in the pi status buffer."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (while (and (not (eobp)) (pi-current-section))
-      (let ((section (pi-current-section)))
-	(pi-section-set-visibility section :hide))
+    (while (and (not (eobp)) (pi-section--current-section))
+      (let ((section (pi-section--current-section)))
+	(pi-section--set-visibility section :hide))
       (forward-line 1))))
 
 
-(defmacro pi-section-case (&rest clauses)
+(defmacro pi-section--section-case (&rest clauses)
   "Make different action depending of current section.
 
 CLAUSES is a list of CLAUSE, each clause is (SECTION-TYPE &BODY)
@@ -392,14 +392,14 @@ otherwise it return t."
            (debug (&rest (sexp body))))
   (let ((section (make-symbol "*section*"))
         (path (make-symbol "*path*")))
-    `(let* ((,section (pi-current-section))
-            (,path (pi-section-path ,section)))
+    `(let* ((,section (pi-section--current-section))
+            (,path (pi-section--section-path ,section)))
        (cond ,@(mapcar (lambda (clause)
                          (let ((prefix (car clause))
                                (body (cdr clause)))
                            `(,(if (eq prefix t)
                                   `t
-                                `(pi-prefix-p ',(reverse prefix) (reverse ,path)))
+                                `(pi-section--prefix-p ',(reverse prefix) (reverse ,path)))
                              (or (progn ,@body)
                                  t))))
                        clauses)))))
@@ -413,55 +413,55 @@ otherwise it return t."
       (setq buffer-read-only nil)
       (erase-buffer)
       (let* ((pi-section-padding "\n")
-             (root (pi-create-root-section))
-             (build (pi-new-section 'build root))
-             (compile (pi-new-section 'compile build))
-             (tests (pi-new-section 'test build))
-             (unit-tests (pi-new-section 'test tests))
-             (integration-tests (pi-new-section 'integration-tests tests))
-             (logs (pi-new-section 'logs root))
-             (server-log (pi-new-section 'server-log logs))
-             (worker-log (pi-new-section 'worker-log logs))
-             (deploy (pi-new-section 'deploy root)))
-        (pi-insert-section build
+             (root (pi-section--create-root-section))
+             (build (pi-section--new-section 'build root))
+             (compile (pi-section--new-section 'compile build))
+             (tests (pi-section--new-section 'test build))
+             (unit-tests (pi-section--new-section 'test tests))
+             (integration-tests (pi-section--new-section 'integration-tests tests))
+             (logs (pi-section--new-section 'logs root))
+             (server-log (pi-section--new-section 'server-log logs))
+             (worker-log (pi-section--new-section 'worker-log logs))
+             (deploy (pi-section--new-section 'deploy root)))
+        (pi-section--insert-section build
           (insert "[-] Build\n"))
-        (pi-insert-section compile
+        (pi-section--insert-section compile
           (insert "  [-] Compile\n")
           (insert "      Compiling foo.c\n")
           (insert "      Compiling bar.c\n"))
-        (pi-insert-section tests
+        (pi-section--insert-section tests
           (insert "  [-] Tests\n"))
-        (pi-insert-section unit-tests
+        (pi-section--insert-section unit-tests
           (insert "      [-] Unit Tests\n")
           (insert "          test-auth ... ok\n")
           (insert "          test-db ... ok\n"))
-        (pi-insert-section integration-tests
+        (pi-section--insert-section integration-tests
           (insert "      [-] Integration Tests\n")
           (insert "          api-flow ... running\n"))
-        (pi-insert-section logs
+        (pi-section--insert-section logs
           (insert "[-] Logs\n"))
-        (pi-insert-section server-log
+        (pi-section--insert-section server-log
           (insert "  [-] Server\n")
           (insert "      Listening on :8080\n")
           (insert "      Connected client #42\n"))
-        (pi-insert-section worker-log
+        (pi-section--insert-section worker-log
           (insert "  [-] Worker\n")
           (insert "      Job started\n")
           (insert "      Job completed\n"))
-        (pi-insert-section deploy
+        (pi-section--insert-section deploy
           (insert "[-] Deploy\n")
           (insert "    Uploading artifacts...\n")
           (insert "    Restarting services...\n"))
-        (pi-append-section server-log
+        (pi-section--append-section server-log
           (insert "      Connected client #43\n")
           (insert "      Connected client #44\n")
           (insert "      Connected client #45\n"))
-        (pi-replace-section worker-log
+        (pi-section--replace-section worker-log
           (insert "  [-] Worker\n")
           (insert "      Restarted\n")
           (insert "      Processing queue...\n")
           (insert "      Queue drained\n"))
-        (pi-append-section server-log
+        (pi-section--append-section server-log
           (insert "      Connected client #46\n")
           (insert "      Connected client #47\n")
           (insert "      Connected client #48\n")))
@@ -474,7 +474,7 @@ otherwise it return t."
 (defun pi-describe-section (section &optional indent)
   "Pretty print SECTION and its children with INDENT.
 Does not recurse into the parent."
-  (interactive (list (pi-current-section) 0))
+  (interactive (list (pi-section--current-section) 0))
   (let ((prefix (make-string (* indent 2) ?\s))
         (parent (pi-section-parent section)))
     (princ (format "%sSection: %s\n" prefix
@@ -496,11 +496,11 @@ Does not recurse into the parent."
         (dolist (child children)
           (pi-describe-section child (1+ indent)))))))
 
-(defun pi-section-line ()
+(defun pi-section--section-line ()
   "Return the 0-based line number of point within the current section.
 Returns 0 if point is on the first line of the section or if there is
 no current section."
-  (if-let ((section (pi-current-section)))
+  (if-let ((section (pi-section--current-section)))
       (count-lines (pi-section-beginning section) (point))
     0))
 
