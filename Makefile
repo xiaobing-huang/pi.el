@@ -98,4 +98,4 @@ docs-lint:
 docs: pi.info
 	ruby -e 'txt = IO.read("pi.texi").split("@c custom-variables-start")[0] + "@c custom-variables-start\n\n" + `emacs --batch --eval "$$ESCRIPT"` + "@c custom-variables-end" + IO.read("pi.texi").split("@c custom-variables-end")[1]; File.write("pi.texi", txt)'
 	makeinfo pi.texi
-	makeinfo --no-number-sections --html --no-split --css-ref="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" --css-ref=global.css -o ./docs/index.html pi.texi
+	makeinfo --no-number-sections --html --no-split -o ./docs/index.html pi.texi

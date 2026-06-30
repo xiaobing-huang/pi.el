@@ -27,3 +27,8 @@ div.example pre {
 .category-def {
     display: none;
 }
+
+.hljs {
+    background: var(--pico-code-background-color);
+    color: var(--pico-code-color);
+}
