@@ -134,7 +134,7 @@
   :type 'boolean
   :group 'pi)
 
-(defcustom pi-log-rpc-file "/tmp/pi.el.log"
+(defcustom pi-log-rpc-file (expand-file-name "pi.el.log" (temporary-file-directory))
   "File to write RPC JSON log entries to."
   :type 'file
   :group 'pi)
@@ -1252,7 +1252,7 @@ PRED is called with KEY VALUE."
 (defun pi--format-tool-args (tool-name args)
   (if-let ((inserter (alist-get tool-name pi-insert-tool-args-functions nil nil #'equal)))
       (funcall inserter args)
-    (unless (null args)
+    (when args
       (insert (format "%S" args)))))
 
 (defun pi--insert-tool-result (tool-name result-text is-error &optional details args)
@@ -2159,7 +2159,7 @@ FIELDS is a list of (LABEL . KEY) where KEY is a plist key."
                       (lambda (s)
                         (let* ((ts (pi-session-choice-timestamp s))
                                (formatted-time (if ts
-                                                   (format-time-string "%Y-%m-%d %H:%M" ts)
+                                                   (format-time-string "%F %R" ts)
                                                  ""))
                                (short-id (substring (pi-session-choice-id s) -8))
                                (short-parent (when-let ((pid (pi-session-choice-parent-id s)))
@@ -2483,7 +2483,7 @@ With a prefix argument OTHER-WINDOW, visit in other window."
   (setq pi--status-widget-lines (make-hash-table :test 'equal))
   (widget-setup)
   (pi-focus-prompt)
-  (add-hook 'kill-buffer-hook 'pi--cleanup-chat-buffer nil t)
+  (add-hook 'kill-buffer-hook #'pi--cleanup-chat-buffer nil t)
   (pi--register-event-listeners)
   (setq-local mode-line-misc-info
               (append (list '(:eval (pi--format-mode-line)))

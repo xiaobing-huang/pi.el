@@ -62,9 +62,9 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
   (or (null prefix)
       (if (eq (car prefix) '*)
           (or (pi-section--prefix-p (cdr prefix) list)
-              (and (not (null list))
+              (and list
                    (pi-section--prefix-p prefix (cdr list))))
-        (and (not (null list))
+        (and list
              (equal (car prefix) (car list))
              (pi-section--prefix-p (cdr prefix) (cdr list))))))
 
@@ -279,7 +279,7 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
     (cond
      ((null section)
       (if (and pi-section--root-section
-               (not (null (pi-section-children pi-section--root-section))))
+               (pi-section-children pi-section--root-section))
           (goto-char (pi-section-beginning (car (last (pi-section-children pi-section--root-section)))))
         (message "No previous section")))
      ((= (point) (pi-section-beginning section))
@@ -295,7 +295,7 @@ is a sublist of LIST (as if '* matched zero or more arbitrary elements of LIST)"
         (goto-char (pi-section-beginning (or prev section))))))))
 
 (defun pi-goto-last-section ()
-  "Go to the last child section of pi-section--root-section."
+  "Go to the last child section of `pi-section--root-section'."
   (interactive)
   (if (and pi-section--root-section
            (pi-section-children pi-section--root-section))

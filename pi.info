@@ -1,12 +1,17 @@
 This is pi.info, produced by makeinfo version 7.2 from pi.texi.
 
-Copyright © 2026 Anantha Kumaran.
+     Copyright © 2026 Anantha Kumaran.
 
-     Permission is granted to copy, distribute and/or modify this
-     document under the terms of the GNU Free Documentation License,
-     Version 1.2 or any later version published by the Free Software
-     Foundation; with no Invariant Sections, with no Front-Cover Texts,
-     and with no Back-Cover Texts.
+     You can redistribute this document and/or modify it under the terms
+     of the GNU General Public License as published by the Free Software
+     Foundation, either version 3 of the License, or (at your option)
+     any later version.
+
+     This document is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+     General Public License for more details.
+
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Pi: (pi).               An Emacs client for Pi Coding Agent.
@@ -357,18 +362,18 @@ File: pi.info,  Node: Custom Variables,  Prev: Keybindings,  Up: Top
 
 
 Tag Table:
-Node: Top539
-Node: Introduction789
-Node: Setup1038
-Node: Usage1613
-Node: Slash Commands2181
-Node: File Name Completion2504
-Node: Bash2824
-Node: Sending Context3087
-Node: Sandbox3869
-Node: How It Works4231
-Node: Keybindings4696
-Node: Custom Variables6656
+Node: Top730
+Node: Introduction980
+Node: Setup1229
+Node: Usage1804
+Node: Slash Commands2372
+Node: File Name Completion2695
+Node: Bash3015
+Node: Sending Context3278
+Node: Sandbox4060
+Node: How It Works4422
+Node: Keybindings4887
+Node: Custom Variables6847
 
 End Tag Table
 
