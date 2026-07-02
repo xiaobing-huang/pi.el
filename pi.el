@@ -1222,7 +1222,9 @@ When PRESERVE-CHAT is non-nil, the chat buffer is not killed."
 
 (defun pi--normalize-grep-file (file args)
   (if-let ((path (plist-get args :path)))
-      (expand-file-name file path)
+      (if (file-directory-p path)
+          (expand-file-name file path)
+        path)
     file))
 
 (defun pi--visit-grep-result (_details args)
