@@ -2554,7 +2554,7 @@ With a prefix argument OTHER-WINDOW, visit in other window."
     (kill-buffer buffer))
   (pi--kill-agent))
 
-(defun pi--switch-session (session-file message)
+(defun pi--switch-session (session-file message &optional cb)
   "Switch to an existing session file and refresh.
 SESSION-FILE is the path to the session file to switch to.
 MESSAGE is shown as a notification when complete."
@@ -2564,7 +2564,9 @@ MESSAGE is shown as a notification when complete."
      (pi--update-header-line)
      (pi--unless-cancelled resp "Session switch"
        (pi-refresh-session (lambda ()
-                             (pi--notify message)))))))
+                             (pi--notify message)
+                             (when cb
+                               (funcall cb))))))))
 
 (defun pi-reload ()
   "Reload agent configuration by restarting the agent process."
@@ -2579,7 +2581,11 @@ MESSAGE is shown as a notification when complete."
          (pi--widget-save-excursion
            (pi--clear-sections))
          (pi--start-agent (pi--project-key))
-         (pi--switch-session session-file "Agent reloaded."))))))
+         (pi--switch-session
+          session-file
+          "Agent reloaded."
+          (lambda ()
+            (pi--fetch-commands))))))))
 
 (defun pi-restart-chat ()
   "Exit the current chat and restart."
